@@ -4,7 +4,8 @@
   "functions": {
     "api/index.js": { "maxDuration": 30 }
   },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.js" },
+    { "src": "/(.*)",     "dest": "/index.html" }
   ]
 }
