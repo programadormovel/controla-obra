@@ -37,8 +37,8 @@ const dbConfig = {
   user: process.env.DB_USER || 'controleobras',
   password: process.env.DB_PASS || '12345678',
   options: { encrypt: true, trustServerCertificate: true, enableArithAbort: true },
-  connectionTimeout: 30000,
-  requestTimeout: 30000,
+  connectionTimeout: 15000,
+  requestTimeout: 15000,
 };
 
 let pool = null;
@@ -55,9 +55,12 @@ function toTimeDate(hms) {
   return new Date(1970, 0, 1, parts[0] || 0, parts[1] || 0, parts[2] || 0);
 }
 
+// helper: propaga erros async para o middleware de erro do Express
+const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
+
 // ── Rotas ────────────────────────────────────────────────────────────────────
 
-app.post('/login', async (req, res) => {
+app.post('/login', wrap(async (req, res) => {
   const { login, senhaHash } = req.body;
   const p = await getPool();
   const r = await p.request()
@@ -67,15 +70,15 @@ app.post('/login', async (req, res) => {
   const user = r.recordset[0];
   if (!user) return res.status(401).json({ error: 'Credenciais invalidas' });
   res.json(user);
-});
+}));
 
-app.get('/funcionarios', async (_req, res) => {
+app.get('/funcionarios', wrap(async (_req, res) => {
   const p = await getPool();
   const r = await p.request().query('SELECT * FROM Funcionario ORDER BY Nome');
   res.json(r.recordset);
-});
+}));
 
-app.post('/funcionarios', async (req, res) => {
+app.post('/funcionarios', wrap(async (req, res) => {
   const f = req.body;
   const p = await getPool();
   await p.request()
@@ -90,9 +93,9 @@ app.post('/funcionarios', async (req, res) => {
     .input('ObraId',      sql.VarChar(36),    f.obraId || null)
     .execute('sp_SalvarFuncionario');
   res.json({ ok: true });
-});
+}));
 
-app.delete('/funcionarios/:id', async (req, res) => {
+app.delete('/funcionarios/:id', wrap(async (req, res) => {
   const p = await getPool();
   const check = await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('SELECT COUNT(*) AS total FROM Presenca WHERE FuncionarioId = @Id');
@@ -101,15 +104,15 @@ app.delete('/funcionarios/:id', async (req, res) => {
   await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('DELETE FROM Funcionario WHERE Id = @Id');
   res.json({ ok: true });
-});
+}));
 
-app.get('/obras', async (_req, res) => {
+app.get('/obras', wrap(async (_req, res) => {
   const p = await getPool();
   const r = await p.request().query('SELECT * FROM Obra ORDER BY Nome');
   res.json(r.recordset);
-});
+}));
 
-app.post('/obras', async (req, res) => {
+app.post('/obras', wrap(async (req, res) => {
   const o = req.body;
   const p = await getPool();
   await p.request()
@@ -121,9 +124,9 @@ app.post('/obras', async (req, res) => {
     .input('Ativa',    sql.Bit,           o.ativa ? 1 : 0)
     .execute('sp_SalvarObra');
   res.json({ ok: true });
-});
+}));
 
-app.delete('/obras/:id', async (req, res) => {
+app.delete('/obras/:id', wrap(async (req, res) => {
   const p = await getPool();
   const check = await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('SELECT COUNT(*) AS total FROM Presenca WHERE ObraId = @Id');
@@ -132,9 +135,9 @@ app.delete('/obras/:id', async (req, res) => {
   await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('DELETE FROM Obra WHERE Id = @Id');
   res.json({ ok: true });
-});
+}));
 
-app.get('/presencas', async (req, res) => {
+app.get('/presencas', wrap(async (req, res) => {
   const { data, funcionarioId, de, ate } = req.query;
   const p = await getPool();
   let q = 'SELECT * FROM vw_PresencaCompleta WHERE 1=1';
@@ -146,9 +149,9 @@ app.get('/presencas', async (req, res) => {
   q += ' ORDER BY Data DESC, HoraEntrada';
   const r = await req2.query(q);
   res.json(r.recordset);
-});
+}));
 
-app.post('/presencas', async (req, res) => {
+app.post('/presencas', wrap(async (req, res) => {
   const b = req.body;
   const p = await getPool();
   const jaExiste = await p.request().input('Id', sql.VarChar(36), b.id)
@@ -175,22 +178,19 @@ app.post('/presencas', async (req, res) => {
               VALUES (@Id,@FuncionarioId,@ObraId,@Data,@HoraEntrada,@Lat,@Lng,@DistanciaObra,@Status)`);
   }
   res.json({ ok: true });
-});
+}));
 
-app.delete('/presencas/:id', async (req, res) => {
+app.delete('/presencas/:id', wrap(async (req, res) => {
   const p = await getPool();
   await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('DELETE FROM Presenca WHERE Id = @Id');
   res.json({ ok: true });
-});
+}));
 
-// POST /presencas/:id/foto — multer em memória, salva no Vercel Blob ou retorna URL base64
-app.post('/presencas/:id/foto', upload.single('foto'), async (req, res) => {
+app.post('/presencas/:id/foto', upload.single('foto'), wrap(async (req, res) => {
   const presencaId = req.params.id;
   const tipo = req.body.tipo || 'entrada';
   if (!req.file) return res.status(400).json({ error: 'Foto ausente' });
-
-  // Vercel não tem disco persistente: armazena como base64 data URL no banco
   const dataUrl = `data:image/jpeg;base64,${req.file.buffer.toString('base64')}`;
   const col = tipo === 'entrada' ? 'FotoEntrada' : 'FotoSaida';
   const p = await getPool();
@@ -198,11 +198,10 @@ app.post('/presencas/:id/foto', upload.single('foto'), async (req, res) => {
     .input('Id',  sql.VarChar(36),   presencaId)
     .input('Url', sql.VarChar(8000), dataUrl)
     .query(`UPDATE Presenca SET ${col} = @Url WHERE Id = @Id`);
-
   res.json({ url: dataUrl });
-});
+}));
 
-app.get('/usuarios', async (_req, res) => {
+app.get('/usuarios', wrap(async (_req, res) => {
   const p = await getPool();
   const r = await p.request().query(`
     SELECT u.Id, u.Login, u.Email, u.Ativo, u.FuncionarioId,
@@ -213,9 +212,9 @@ app.get('/usuarios', async (_req, res) => {
     ORDER BY u.Login
   `);
   res.json(r.recordset);
-});
+}));
 
-app.post('/usuarios', async (req, res) => {
+app.post('/usuarios', wrap(async (req, res) => {
   const b = req.body;
   const p = await getPool();
   const perfilId = b.perfil === 'admin' ? 1 : 2;
@@ -229,16 +228,16 @@ app.post('/usuarios', async (req, res) => {
     .input('Ativo',         sql.Bit,          b.ativo ? 1 : 0)
     .execute('sp_SalvarUsuario');
   res.json({ ok: true });
-});
+}));
 
-app.delete('/usuarios/:id', async (req, res) => {
+app.delete('/usuarios/:id', wrap(async (req, res) => {
   const p = await getPool();
   await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('DELETE FROM Usuario WHERE Id = @Id');
   res.json({ ok: true });
-});
+}));
 
-app.post('/usuarios/:id/reset-senha', async (req, res) => {
+app.post('/usuarios/:id/reset-senha', wrap(async (req, res) => {
   const p = await getPool();
   const r = await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('SELECT Login, Email FROM Usuario WHERE Id = @Id AND Ativo = 1');
@@ -262,9 +261,9 @@ app.post('/usuarios/:id/reset-senha', async (req, res) => {
     </div>`,
   });
   res.json({ ok: true });
-});
+}));
 
-app.get('/relatorio', async (req, res) => {
+app.get('/relatorio', wrap(async (req, res) => {
   const { dataInicio, dataFim, obraId } = req.query;
   const p = await getPool();
   const r = await p.request()
@@ -273,7 +272,7 @@ app.get('/relatorio', async (req, res) => {
     .input('ObraId',     sql.VarChar(36), obraId || null)
     .execute('sp_RelatorioCusto');
   res.json(r.recordset);
-});
+}));
 
 // ── Erro global ──────────────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
