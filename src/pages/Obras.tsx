@@ -70,7 +70,6 @@ export default function Obras() {
         <h2 className="page-title">Obras</h2>
         <button onClick={abrirNovo} className="btn btn-primary"><Plus size={16} /> Nova Obra</button>
       </div>
-
       <div className="card">
         <div className="table-wrap">
           <table>
