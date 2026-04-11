@@ -31,8 +31,9 @@ const dbConfig = {
   user:     process.env.DB_USER     || 'controleobras',
   password: process.env.DB_PASS     || '12345678',
   options:  { encrypt: true, trustServerCertificate: true, enableArithAbort: true },
-  connectionTimeout: 15000,
-  requestTimeout:    15000,
+  connectionTimeout: 60000,
+  requestTimeout:    60000,
+  pool: { max: 1, min: 0, idleTimeoutMillis: 30000 },
 };
 
 let pool = null;
