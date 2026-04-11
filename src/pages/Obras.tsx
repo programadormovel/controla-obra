@@ -116,7 +116,6 @@ export default function Obras() {
           </table>
         </div>
       </div>
-
       {modal && (
         <div className="modal-overlay">
           <div className="modal">
