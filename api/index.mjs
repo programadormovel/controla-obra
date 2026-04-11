@@ -62,7 +62,13 @@ const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
 
 app.post('/login', wrap(async (req, res) => {
   const { login, senhaHash } = req.body;
+  console.log('[login] body:', JSON.stringify(req.body));
+  console.log('[login] login:', login, '| senhaHash len:', senhaHash?.length, '| hash:', senhaHash);
   const p = await getPool();
+  // debug: ver o que está no banco
+  const dbg = await p.request().input('Login', sql.VarChar(50), login)
+    .query('SELECT Id, Login, SenhaHash, Ativo FROM Usuario WHERE Login = @Login');
+  console.log('[login] db row:', JSON.stringify(dbg.recordset[0]));
   const r = await p.request()
     .input('Login', sql.VarChar(50), login)
     .input('SenhaHash', sql.VarChar(64), senhaHash)
