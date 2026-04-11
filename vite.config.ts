@@ -8,7 +8,6 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        rewrite: path => path.replace(/^\/api/, ''),
         configure: (proxy) => {
           proxy.on('error', (err) => console.error('[proxy]', err.message));
         },

@@ -69,7 +69,8 @@ async function readBody(req) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = req.url.split('?')[0];
+  // strip /api prefix so dev matches Vercel routing
+  const url = req.url.replace(/^\/api/, '').split('?')[0] || '/';
 
   // ── Servir arquivos de /uploads ──────────────────────────
   if (req.method === 'GET' && url.startsWith('/uploads/')) {
