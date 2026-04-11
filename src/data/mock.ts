@@ -1,11 +1,11 @@
 import type { Funcionario, Obra, Presenca } from '../types';
 
 export const mockFuncionarios: Funcionario[] = [
-  { id: 'f1', nome: 'Carlos Silva', funcao: 'Pedreiro', diaria: 180, transporte: 20, alimentacao: 25, telefone: '11999990001', ativo: true },
-  { id: 'f2', nome: 'João Souza', funcao: 'Servente', diaria: 130, transporte: 20, alimentacao: 25, telefone: '11999990002', ativo: true },
-  { id: 'f3', nome: 'Pedro Lima', funcao: 'Eletricista', diaria: 220, transporte: 25, alimentacao: 25, telefone: '11999990003', ativo: true },
-  { id: 'f4', nome: 'Marcos Rocha', funcao: 'Encanador', diaria: 200, transporte: 25, alimentacao: 25, telefone: '11999990004', ativo: true },
-  { id: 'f5', nome: 'André Costa', funcao: 'Pintor', diaria: 160, transporte: 20, alimentacao: 25, telefone: '11999990005', ativo: true },
+  { id: 'f1', nome: 'Carlos Silva',  funcao: 'Pedreiro',    diaria: 180, transporte: 20, alimentacao: 25, telefone: '11999990001', ativo: true, obraId: null },
+  { id: 'f2', nome: 'João Souza',    funcao: 'Servente',    diaria: 130, transporte: 20, alimentacao: 25, telefone: '11999990002', ativo: true, obraId: null },
+  { id: 'f3', nome: 'Pedro Lima',    funcao: 'Eletricista', diaria: 220, transporte: 25, alimentacao: 25, telefone: '11999990003', ativo: true, obraId: null },
+  { id: 'f4', nome: 'Marcos Rocha', funcao: 'Encanador',   diaria: 200, transporte: 25, alimentacao: 25, telefone: '11999990004', ativo: true, obraId: null },
+  { id: 'f5', nome: 'André Costa',  funcao: 'Pintor',      diaria: 160, transporte: 20, alimentacao: 25, telefone: '11999990005', ativo: true, obraId: null },
 ];
 
 export const mockObras: Obra[] = [

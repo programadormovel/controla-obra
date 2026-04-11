@@ -3,7 +3,7 @@ import { db, distanciaMetros } from '../services/storage';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { Presenca as PresencaType, Funcionario } from '../types';
-import { MapPin, CheckCircle, Clock, AlertTriangle, Edit2, Trash2, Save, X, Camera, RotateCcw } from 'lucide-react';
+import { MapPin, CheckCircle, AlertTriangle, Edit2, Trash2, Save, X, Camera, RotateCcw } from 'lucide-react';
 
 // ── Componente de câmera ──────────────────────────────────────────────────────
 function CapturarFoto({ onCapturar, onCancelar }: { onCapturar: (blob: Blob) => void; onCancelar: () => void }) {
