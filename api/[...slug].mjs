@@ -61,9 +61,11 @@ function toTimeDate(hms) {
 // helper: propaga erros async para o middleware de erro do Express
 const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
 
+const router = express.Router();
+
 // ── Rotas ────────────────────────────────────────────────────────────────────
 
-app.post('/login', wrap(async (req, res) => {
+router.post('/login', wrap(async (req, res) => {
   const { login, senhaHash } = req.body;
   console.log('[login] body:', JSON.stringify(req.body));
   console.log('[login] login:', login, '| senhaHash len:', senhaHash?.length, '| hash:', senhaHash);
@@ -81,13 +83,13 @@ app.post('/login', wrap(async (req, res) => {
   res.json(user);
 }));
 
-app.get('/funcionarios', wrap(async (_req, res) => {
+router.get('/funcionarios', wrap(async (_req, res) => {
   const p = await getPool();
   const r = await p.request().query('SELECT * FROM Funcionario ORDER BY Nome');
   res.json(r.recordset);
 }));
 
-app.post('/funcionarios', wrap(async (req, res) => {
+router.post('/funcionarios', wrap(async (req, res) => {
   const f = req.body;
   const p = await getPool();
   await p.request()
@@ -104,7 +106,7 @@ app.post('/funcionarios', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.delete('/funcionarios/:id', wrap(async (req, res) => {
+router.delete('/funcionarios/:id', wrap(async (req, res) => {
   const p = await getPool();
   const check = await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('SELECT COUNT(*) AS total FROM Presenca WHERE FuncionarioId = @Id');
@@ -115,13 +117,13 @@ app.delete('/funcionarios/:id', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.get('/obras', wrap(async (_req, res) => {
+router.get('/obras', wrap(async (_req, res) => {
   const p = await getPool();
   const r = await p.request().query('SELECT * FROM Obra ORDER BY Nome');
   res.json(r.recordset);
 }));
 
-app.post('/obras', wrap(async (req, res) => {
+router.post('/obras', wrap(async (req, res) => {
   const o = req.body;
   const p = await getPool();
   await p.request()
@@ -135,7 +137,7 @@ app.post('/obras', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.delete('/obras/:id', wrap(async (req, res) => {
+router.delete('/obras/:id', wrap(async (req, res) => {
   const p = await getPool();
   const check = await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('SELECT COUNT(*) AS total FROM Presenca WHERE ObraId = @Id');
@@ -146,7 +148,7 @@ app.delete('/obras/:id', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.get('/presencas', wrap(async (req, res) => {
+router.get('/presencas', wrap(async (req, res) => {
   const { data, funcionarioId, de, ate } = req.query;
   const p = await getPool();
   let q = 'SELECT * FROM vw_PresencaCompleta WHERE 1=1';
@@ -160,7 +162,7 @@ app.get('/presencas', wrap(async (req, res) => {
   res.json(r.recordset);
 }));
 
-app.post('/presencas', wrap(async (req, res) => {
+router.post('/presencas', wrap(async (req, res) => {
   const b = req.body;
   const p = await getPool();
   const jaExiste = await p.request().input('Id', sql.VarChar(36), b.id)
@@ -189,14 +191,14 @@ app.post('/presencas', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.delete('/presencas/:id', wrap(async (req, res) => {
+router.delete('/presencas/:id', wrap(async (req, res) => {
   const p = await getPool();
   await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('DELETE FROM Presenca WHERE Id = @Id');
   res.json({ ok: true });
 }));
 
-app.post('/presencas/:id/foto', upload.single('foto'), wrap(async (req, res) => {
+router.post('/presencas/:id/foto', upload.single('foto'), wrap(async (req, res) => {
   const presencaId = req.params.id;
   const tipo = req.body.tipo || 'entrada';
   if (!req.file) return res.status(400).json({ error: 'Foto ausente' });
@@ -210,7 +212,7 @@ app.post('/presencas/:id/foto', upload.single('foto'), wrap(async (req, res) => 
   res.json({ url: dataUrl });
 }));
 
-app.get('/usuarios', wrap(async (_req, res) => {
+router.get('/usuarios', wrap(async (_req, res) => {
   const p = await getPool();
   const r = await p.request().query(`
     SELECT u.Id, u.Login, u.Email, u.Ativo, u.FuncionarioId,
@@ -223,7 +225,7 @@ app.get('/usuarios', wrap(async (_req, res) => {
   res.json(r.recordset);
 }));
 
-app.post('/usuarios', wrap(async (req, res) => {
+router.post('/usuarios', wrap(async (req, res) => {
   const b = req.body;
   const p = await getPool();
   const perfilId = b.perfil === 'admin' ? 1 : 2;
@@ -239,14 +241,14 @@ app.post('/usuarios', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.delete('/usuarios/:id', wrap(async (req, res) => {
+router.delete('/usuarios/:id', wrap(async (req, res) => {
   const p = await getPool();
   await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('DELETE FROM Usuario WHERE Id = @Id');
   res.json({ ok: true });
 }));
 
-app.post('/usuarios/:id/reset-senha', wrap(async (req, res) => {
+router.post('/usuarios/:id/reset-senha', wrap(async (req, res) => {
   const p = await getPool();
   const r = await p.request().input('Id', sql.VarChar(36), req.params.id)
     .query('SELECT Login, Email FROM Usuario WHERE Id = @Id AND Ativo = 1');
@@ -272,7 +274,7 @@ app.post('/usuarios/:id/reset-senha', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.get('/relatorio', wrap(async (req, res) => {
+router.get('/relatorio', wrap(async (req, res) => {
   const { dataInicio, dataFim, obraId } = req.query;
   const p = await getPool();
   const r = await p.request()
@@ -282,6 +284,10 @@ app.get('/relatorio', wrap(async (req, res) => {
     .execute('sp_RelatorioCusto');
   res.json(r.recordset);
 }));
+
+// monta em /api (Vercel catch-all) e em / (dev local via server.mjs)
+app.use('/api', router);
+app.use('/', router);
 
 // ── Erro global ──────────────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
