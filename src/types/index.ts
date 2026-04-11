@@ -7,6 +7,7 @@ export type Funcionario = {
   alimentacao: number;
   telefone: string;
   ativo: boolean;
+  obraId: string | null;
 };
 
 export type Obra = {
@@ -29,4 +30,27 @@ export type Presenca = {
   lng: number;
   distanciaObra: number;
   status: "presente" | "ausente" | "meio-periodo";
+  fotoEntrada?: string;
+  fotoSaida?: string;
+};
+
+export type UsuarioAdmin = {
+  id: string;
+  login: string;
+  perfil: 'admin' | 'funcionario';
+  funcionarioId: string | null;
+  funcionarioNome: string | null;
+  email: string | null;
+  ativo: boolean;
+};
+
+export type Perfil = 'admin' | 'funcionario';
+
+export type Usuario = {
+  id: string;
+  login: string;
+  perfil: Perfil;
+  funcionarioId: string | null;
+  funcionarioNome: string | null;
+  funcao: string | null;
 };

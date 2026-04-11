@@ -1,41 +1,75 @@
 import type { Funcionario, Obra, Presenca } from '../types';
 import { mockFuncionarios, mockObras, mockPresencas } from '../data/mock';
+import { api } from './api';
 
 const KEYS = { funcionarios: 'co_funcionarios', obras: 'co_obras', presencas: 'co_presencas' };
 
-function load<T>(key: string, fallback: T[]): T[] {
+function loadLocal<T>(key: string, fallback: T[]): T[] {
   const raw = sessionStorage.getItem(key);
   if (raw) return JSON.parse(raw);
   sessionStorage.setItem(key, JSON.stringify(fallback));
   return fallback;
 }
-
-function save<T>(key: string, data: T[]) {
+function saveLocal<T>(key: string, data: T[]) {
   sessionStorage.setItem(key, JSON.stringify(data));
 }
 
 export const db = {
-  getFuncionarios: (): Funcionario[] => load(KEYS.funcionarios, mockFuncionarios),
-  getObras: (): Obra[] => load(KEYS.obras, mockObras),
-  getPresencas: (): Presenca[] => load(KEYS.presencas, mockPresencas),
-
-  saveFuncionario(f: Funcionario) {
-    const list = db.getFuncionarios();
+  async getFuncionariosAsync(): Promise<Funcionario[]> {
+    try { const l = await api.getFuncionarios(); saveLocal(KEYS.funcionarios, l); return l; }
+    catch { return loadLocal(KEYS.funcionarios, mockFuncionarios); }
+  },
+  async getObrasAsync(): Promise<Obra[]> {
+    try { const l = await api.getObras(); saveLocal(KEYS.obras, l); return l; }
+    catch { return loadLocal(KEYS.obras, mockObras); }
+  },
+  async saveObra(o: Obra): Promise<void> {
+    await api.saveObra(o);
+    const list = loadLocal<Obra>(KEYS.obras, mockObras);
+    const idx = list.findIndex(x => x.id === o.id);
+    if (idx >= 0) list.splice(idx, 1, o); else list.push(o);
+    saveLocal(KEYS.obras, list);
+  },
+  async deleteObra(id: string): Promise<void> {
+    try { await api.deleteObra(id); } catch { /* offline */ }
+    saveLocal(KEYS.obras, loadLocal<Obra>(KEYS.obras, mockObras).filter(o => o.id !== id));
+  },
+  async getPresencasAsync(params?: { data?: string; funcionarioId?: string; de?: string; ate?: string }): Promise<Presenca[]> {
+    try { return await api.getPresencas(params); }
+    catch {
+      return loadLocal<Presenca>(KEYS.presencas, mockPresencas).filter(p =>
+        (!params?.data || p.data === params.data) &&
+        (!params?.funcionarioId || p.funcionarioId === params.funcionarioId) &&
+        (!params?.de  || p.data >= params.de) &&
+        (!params?.ate || p.data <= params.ate)
+      );
+    }
+  },
+  async saveFuncionario(f: Funcionario): Promise<void> {
+    try { await api.saveFuncionario(f); } catch { /* offline */ }
+    const list = loadLocal<Funcionario>(KEYS.funcionarios, mockFuncionarios);
     const idx = list.findIndex(x => x.id === f.id);
     if (idx >= 0) list.splice(idx, 1, f); else list.push(f);
-    save(KEYS.funcionarios, list);
+    saveLocal(KEYS.funcionarios, list);
   },
-
-  savePresenca(p: Presenca) {
-    const list = db.getPresencas();
+  async savePresenca(p: Presenca): Promise<void> {
+    try { await api.savePresenca(p); } catch { /* offline */ }
+    const list = loadLocal<Presenca>(KEYS.presencas, mockPresencas);
     const idx = list.findIndex(x => x.id === p.id);
     if (idx >= 0) list.splice(idx, 1, p); else list.push(p);
-    save(KEYS.presencas, list);
+    saveLocal(KEYS.presencas, list);
   },
-
-  deletePresenca(id: string) {
-    save(KEYS.presencas, db.getPresencas().filter(p => p.id !== id));
+  async deleteFuncionario(id: string): Promise<void> {
+    try { await api.deleteFuncionario(id); } catch { /* offline */ }
+    saveLocal(KEYS.funcionarios, loadLocal<Funcionario>(KEYS.funcionarios, mockFuncionarios).filter(f => f.id !== id));
   },
+  async deletePresenca(id: string): Promise<void> {
+    try { await api.deletePresenca(id); } catch { /* offline */ }
+    saveLocal(KEYS.presencas, loadLocal<Presenca>(KEYS.presencas, mockPresencas).filter(p => p.id !== id));
+  },
+  getFuncionarios: (): Funcionario[] => loadLocal(KEYS.funcionarios, mockFuncionarios),
+  getObras: (): Obra[] => loadLocal(KEYS.obras, mockObras),
+  getPresencas: (): Presenca[] => loadLocal(KEYS.presencas, mockPresencas),
 };
 
 export function calcCustoDiario(f: Funcionario, status: Presenca['status']) {
