@@ -9,6 +9,9 @@ import serverless from 'serverless-http';
 const app = express();
 app.use(express.json());
 
+// log temporário para debug
+app.use((req, _res, next) => { console.log('[REQ]', req.method, req.path, 'body:', JSON.stringify(req.body)); next(); });
+
 // ── Multer: armazena em memória (Vercel não tem disco persistente) ──────────
 const upload = multer({ storage: memoryStorage() });
 
