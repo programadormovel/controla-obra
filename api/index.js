@@ -1,10 +1,26 @@
-const { Pool }   = require('pg');
-const express    = require('express');
-const multer     = require('multer');
-const nodemailer = require('nodemailer');
+const { Pool } = require('pg');
 const { createHash } = require('crypto');
 const serverless = require('serverless-http');
+const express = require('express');
+const multer = require('multer');
+const nodemailer = require('nodemailer');
 
+function sha256(t) { return createHash('sha256').update(t).digest('hex'); }
+function gerarSenhaAleatoria() { return Math.random().toString(36).slice(2, 10); }
+
+let _pool = null;
+function getPool() {
+  if (!_pool) _pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    max: 1,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 5000,
+  });
+  return _pool;
+}
+const q = (text, params) => getPool().query(text, params);
+const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
 const app = express();
 app.use(express.json());
 
@@ -17,20 +33,6 @@ const mailer = nodemailer.createTransport({
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
 
-function sha256(t) { return createHash('sha256').update(t).digest('hex'); }
-function gerarSenhaAleatoria() { return Math.random().toString(36).slice(2, 10); }
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-  max: 1,
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 5000,
-  query_timeout: 10000,
-});
-
-const q = (text, params) => pool.query(text, params);
-const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
 const router = express.Router();
 
 const mapFuncionario = r => ({ Id: r.id, Nome: r.nome, Funcao: r.funcao, Diaria: r.diaria, Transporte: r.transporte, Alimentacao: r.alimentacao, Telefone: r.telefone, Ativo: r.ativo, ObraId: r.obraid });
