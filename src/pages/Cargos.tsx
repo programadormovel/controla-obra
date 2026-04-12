@@ -26,6 +26,16 @@ export default function Cargos() {
 
   const pg = usePagination(filtrada);
 
+  function buildRows() {
+    return lista.map(c => ({
+      'Cargo': c.nome,
+      'Diária (R$)': c.diaria,
+      'Transporte (R$)': c.transporte,
+      'Alimentação (R$)': c.alimentacao,
+      'Total/Dia (R$)': +(c.diaria + c.transporte + c.alimentacao).toFixed(2),
+    }));
+  }
+
   function buildTexto() {
     const linhas = lista.map(c =>
       `• ${c.nome} — Diária: R$${c.diaria.toFixed(2)} | Transp: R$${c.transporte.toFixed(2)} | Alim: R$${c.alimentacao.toFixed(2)} | Total: R$${(c.diaria + c.transporte + c.alimentacao).toFixed(2)}`
@@ -63,7 +73,7 @@ export default function Cargos() {
       <div className="page-header">
         <h2 className="page-title">Cargos</h2>
         <div style={{ display: 'flex', gap: 8 }}>
-          <ShareButton buildTexto={buildTexto} assunto="Cargos Cadastrados" adminEmail={adminEmail} />
+          <ShareButton buildTexto={buildTexto} assunto="Cargos Cadastrados" adminEmail={adminEmail} buildRows={buildRows} exportFilename="cargos" />
           <button onClick={abrirNovo} className="btn btn-primary"><Plus size={16} /> Novo Cargo</button>
         </div>
       </div>

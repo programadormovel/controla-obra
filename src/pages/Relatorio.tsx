@@ -71,6 +71,28 @@ export default function Relatorio() {
     { label: 'CUSTO TOTAL',       value: `R$ ${totais.total.toFixed(2)}`,       color: '#dc2626' },
   ];
 
+  function buildRows() {
+    const rows = porFuncionario.map(r => ({
+      'Funcionário': r.nome,
+      'Função': r.funcao,
+      'Dias': r.dias,
+      'Diárias (R$)': +r.diarias.toFixed(2),
+      'Transporte (R$)': +r.transporte.toFixed(2),
+      'Alimentação (R$)': +r.alimentacao.toFixed(2),
+      'Total (R$)': +r.total.toFixed(2),
+    }));
+    rows.push({
+      'Funcionário': 'TOTAL GERAL',
+      'Função': '',
+      'Dias': totais.dias,
+      'Diárias (R$)': +totais.diarias.toFixed(2),
+      'Transporte (R$)': +totais.transporte.toFixed(2),
+      'Alimentação (R$)': +totais.alimentacao.toFixed(2),
+      'Total (R$)': +totais.total.toFixed(2),
+    });
+    return rows;
+  }
+
   function buildTexto() {
     const obraNome = obraFiltro ? obras.find(o => o.id === obraFiltro)?.nome : 'Todas';
     const linhas = porFuncionario.map(r =>
@@ -90,7 +112,7 @@ export default function Relatorio() {
     <div>
       <div className="page-header">
         <h2 className="page-title">Relatório de Custos</h2>
-        <ShareButton buildTexto={buildTexto} assunto={`Relatório de Custos ${dataInicio} a ${dataFim}`} adminEmail={adminEmail} />
+        <ShareButton buildTexto={buildTexto} assunto={`Relatório de Custos ${dataInicio} a ${dataFim}`} adminEmail={adminEmail} buildRows={buildRows} exportFilename={`relatorio_${dataInicio}_${dataFim}`} />
       </div>
 
       <div className="card card-body" style={{ marginBottom: 20 }}>

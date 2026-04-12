@@ -32,6 +32,22 @@ export default function GestaoPresencas() {
   const { run } = useApi();
   const adminEmail = useAdminEmail();
 
+  function buildRows() {
+    return presencasFiltradas.map(p => {
+      const f = funcionarios.find(x => x.id === p.funcionarioId);
+      const o = obras.find(x => x.id === p.obraId);
+      return {
+        'Data': p.data,
+        'Funcionário': f?.nome ?? p.funcionarioId,
+        'Obra': o?.nome ?? p.obraId,
+        'Entrada': p.horaEntrada,
+        'Saída': p.horaSaida ?? '',
+        'Distância (m)': p.distanciaObra,
+        'Status': p.status,
+      };
+    });
+  }
+
   function buildTexto() {
     const porDataLocal = presencasFiltradas.reduce<Record<string, Presenca[]>>((acc, p) => {
       (acc[p.data] ??= []).push(p); return acc;
@@ -118,7 +134,7 @@ export default function GestaoPresencas() {
     <div>
       <div className="page-header">
         <h2 className="page-title">Gestão de Presenças</h2>
-        <ShareButton buildTexto={buildTexto} assunto={`Presenças ${filtroInicio} a ${filtroFim}`} adminEmail={adminEmail} />
+        <ShareButton buildTexto={buildTexto} assunto={`Presenças ${filtroInicio} a ${filtroFim}`} adminEmail={adminEmail} buildRows={buildRows} exportFilename={`presencas_${filtroInicio}_${filtroFim}`} />
       </div>
 
       <div className="card card-body" style={{ marginBottom: 16 }}>

@@ -35,6 +35,16 @@ export default function Obras() {
 
   const pg = usePagination(filtrada);
 
+  function buildRows() {
+    return lista.map(o => ({
+      'Nome': o.nome,
+      'Endereço': o.endereco,
+      'Latitude': o.lat,
+      'Longitude': o.lng,
+      'Status': o.ativa ? 'Ativa' : 'Inativa',
+    }));
+  }
+
   function buildTexto() {
     const linhas = lista.map(o =>
       `• ${o.nome} — ${o.endereco} [${o.ativa ? 'Ativa' : 'Inativa'}]`
@@ -97,7 +107,7 @@ export default function Obras() {
       <div className="page-header">
         <h2 className="page-title">Obras</h2>
         <div style={{ display: 'flex', gap: 8 }}>
-          <ShareButton buildTexto={buildTexto} assunto="Obras Cadastradas" adminEmail={adminEmail} />
+          <ShareButton buildTexto={buildTexto} assunto="Obras Cadastradas" adminEmail={adminEmail} buildRows={buildRows} exportFilename="obras" />
           <button onClick={abrirNovo} className="btn btn-primary"><Plus size={16} /> Nova Obra</button>
         </div>
       </div>

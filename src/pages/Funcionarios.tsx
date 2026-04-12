@@ -60,6 +60,25 @@ export default function Funcionarios() {
 
   const pg = usePagination(filtrada);
 
+  function buildRows() {
+    return lista.map(f => {
+      const obraNome = obras.find(o => o.id === f.obraId)?.nome ?? '';
+      const login = usuarios.find(u => u.funcionarioId === f.id)?.login ?? '';
+      return {
+        'Nome': f.nome,
+        'Função': f.funcao,
+        'Login': login,
+        'Obra': obraNome,
+        'Diária (R$)': f.diaria,
+        'Transporte (R$)': f.transporte,
+        'Alimentação (R$)': f.alimentacao,
+        'Total/Dia (R$)': +(f.diaria + f.transporte + f.alimentacao).toFixed(2),
+        'Telefone': f.telefone,
+        'Status': f.ativo ? 'Ativo' : 'Inativo',
+      };
+    });
+  }
+
   function buildTexto() {
     const linhas = lista.map(f => {
       const obraNome = obras.find(o => o.id === f.obraId)?.nome ?? '—';
@@ -155,7 +174,7 @@ export default function Funcionarios() {
       <div className="page-header">
         <h2 className="page-title">Funcionários</h2>
         <div style={{ display: 'flex', gap: 8 }}>
-          <ShareButton buildTexto={buildTexto} assunto="Lista de Funcionários" adminEmail={adminEmail} />
+          <ShareButton buildTexto={buildTexto} assunto="Lista de Funcionários" adminEmail={adminEmail} buildRows={buildRows} exportFilename="funcionarios" />
           <button onClick={abrirNovo} className="btn btn-primary"><UserPlus size={16} /> Novo Funcionário</button>
         </div>
       </div>
