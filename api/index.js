@@ -29,161 +29,194 @@ const pool = new Pool({
 });
 
 const q = (text, params) => pool.query(text, params);
-
 const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
 const router = express.Router();
+
+const mapFuncionario = r => ({ Id: r.id, Nome: r.nome, Funcao: r.funcao, Diaria: r.diaria, Transporte: r.transporte, Alimentacao: r.alimentacao, Telefone: r.telefone, Ativo: r.ativo, ObraId: r.obraid });
+const mapObra       = r => ({ Id: r.id, Nome: r.nome, Endereco: r.endereco, Lat: r.lat, Lng: r.lng, Ativa: r.ativa });
+const mapUsuario    = r => ({ Id: r.id, Login: r.login, Email: r.email, Ativo: r.ativo, FuncionarioId: r.funcionarioid, Perfil: r.perfil, FuncionarioNome: r.funcionarionome });
+const mapPresenca   = r => ({ Id: r.id, Data: r.data, HoraEntrada: r.horaentrada, HoraSaida: r.horasaida, Status: r.status, DistanciaObra: r.distanciaobra, Lat: r.lat, Lng: r.lng, FotoEntrada: r.fotoentrada, FotoSaida: r.fotosaida, FuncionarioId: r.funcionarioid, FuncionarioNome: r.funcionarionome, Funcao: r.funcao, Diaria: r.diaria, Transporte: r.transporte, Alimentacao: r.alimentacao, DiariaPaga: r.diariapaga, CustoTotal: r.custototal, ObraId: r.obraid, ObraNome: r.obranome, ObraEndereco: r.obraendereco });
 
 // ── Login ────────────────────────────────────────────────────────────────────
 router.post('/login', wrap(async (req, res) => {
   const { login, senhaHash } = req.body;
   const r = await q(`
-    SELECT u."Id", u."Login", u."FuncionarioId",
-           p."Nome" AS "Perfil", f."Nome" AS "FuncionarioNome", f."Funcao"
-    FROM "Usuario" u
-    JOIN "Perfil" p ON p."Id" = u."PerfilId"
-    LEFT JOIN "Funcionario" f ON f."Id" = u."FuncionarioId"
-    WHERE u."Login" = $1 AND u."SenhaHash" = $2 AND u."Ativo" = TRUE
+    SELECT u.id, u.login, u.funcionarioid,
+           p.nome AS perfil, f.nome AS funcionarionome, f.funcao
+    FROM usuario u
+    JOIN perfil p ON p.id = u.perfilid
+    LEFT JOIN funcionario f ON f.id = u.funcionarioid
+    WHERE u.login=$1 AND u.senhahash=$2 AND u.ativo=TRUE
   `, [login, senhaHash]);
   if (!r.rows[0]) return res.status(401).json({ error: 'Credenciais invalidas' });
-  res.json(r.rows[0]);
+  const row = r.rows[0];
+  res.json({ Id: row.id, Login: row.login, FuncionarioId: row.funcionarioid, Perfil: row.perfil, FuncionarioNome: row.funcionarionome, Funcao: row.funcao });
+}));
+
+// ── Cargos ───────────────────────────────────────────────────────────────────
+router.get('/cargos', wrap(async (_req, res) => {
+  const r = await q('SELECT * FROM cargo ORDER BY nome');
+  res.json(r.rows.map(r => ({ id: r.id, nome: r.nome, diaria: Number(r.diaria), transporte: Number(r.transporte), alimentacao: Number(r.alimentacao) })));
+}));
+
+router.post('/cargos', wrap(async (req, res) => {
+  const c = req.body;
+  await q(`INSERT INTO cargo (id,nome,diaria,transporte,alimentacao) VALUES ($1,$2,$3,$4,$5)
+    ON CONFLICT (id) DO UPDATE SET nome=$2,diaria=$3,transporte=$4,alimentacao=$5`,
+    [c.id, c.nome, c.diaria, c.transporte, c.alimentacao]);
+  res.json({ ok: true });
+}));
+
+router.delete('/cargos/:id', wrap(async (req, res) => {
+  await q('DELETE FROM cargo WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
 }));
 
 // ── Funcionários ─────────────────────────────────────────────────────────────
 router.get('/funcionarios', wrap(async (_req, res) => {
-  const r = await q('SELECT * FROM "Funcionario" ORDER BY "Nome"');
-  res.json(r.rows);
+  const r = await q('SELECT * FROM funcionario ORDER BY nome');
+  res.json(r.rows.map(mapFuncionario));
 }));
 
 router.post('/funcionarios', wrap(async (req, res) => {
   const f = req.body;
   await q(`
-    INSERT INTO "Funcionario" ("Id","Nome","Funcao","Diaria","Transporte","Alimentacao","Telefone","Ativo","ObraId")
+    INSERT INTO funcionario (id,nome,funcao,diaria,transporte,alimentacao,telefone,ativo,obraid)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-    ON CONFLICT ("Id") DO UPDATE SET
-      "Nome"=$2,"Funcao"=$3,"Diaria"=$4,"Transporte"=$5,"Alimentacao"=$6,
-      "Telefone"=$7,"Ativo"=$8,"ObraId"=$9
+    ON CONFLICT (id) DO UPDATE SET
+      nome=$2,funcao=$3,diaria=$4,transporte=$5,alimentacao=$6,telefone=$7,ativo=$8,obraid=$9
   `, [f.id, f.nome, f.funcao, f.diaria, f.transporte, f.alimentacao, f.telefone, f.ativo, f.obraId || null]);
+  if (f.usuario) {
+    const { id: uid, login, senhaHash, email } = f.usuario;
+    const existe = await q('SELECT id FROM usuario WHERE id=$1', [uid]);
+    if (existe.rows.length > 0) {
+      const sql = senhaHash
+        ? 'UPDATE usuario SET login=$2,email=$3,funcionarioid=$4,senhahash=$5 WHERE id=$1'
+        : 'UPDATE usuario SET login=$2,email=$3,funcionarioid=$4 WHERE id=$1';
+      await q(sql, senhaHash ? [uid, login, email || null, f.id, senhaHash] : [uid, login, email || null, f.id]);
+    } else if (senhaHash) {
+      await q(`INSERT INTO usuario (id,login,email,perfilid,funcionarioid,senhahash,ativo) VALUES ($1,$2,$3,2,$4,$5,TRUE)`,
+        [uid, login, email || null, f.id, senhaHash]);
+    }
+  }
   res.json({ ok: true });
 }));
 
 router.delete('/funcionarios/:id', wrap(async (req, res) => {
-  const c = await q('SELECT COUNT(*) FROM "Presenca" WHERE "FuncionarioId"=$1', [req.params.id]);
+  const c = await q('SELECT COUNT(*) FROM presenca WHERE funcionarioid=$1', [req.params.id]);
   if (Number(c.rows[0].count) > 0)
     return res.status(409).json({ error: 'Funcionario possui presencas cadastradas.' });
-  await q('DELETE FROM "Funcionario" WHERE "Id"=$1', [req.params.id]);
+  await q('UPDATE usuario SET funcionarioid=NULL WHERE funcionarioid=$1', [req.params.id]);
+  await q('DELETE FROM funcionario WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 }));
 
 // ── Obras ────────────────────────────────────────────────────────────────────
 router.get('/obras', wrap(async (_req, res) => {
-  const r = await q('SELECT * FROM "Obra" ORDER BY "Nome"');
-  res.json(r.rows);
+  const r = await q('SELECT * FROM obra ORDER BY nome');
+  res.json(r.rows.map(mapObra));
 }));
 
 router.post('/obras', wrap(async (req, res) => {
   const o = req.body;
-  await q(`
-    INSERT INTO "Obra" ("Id","Nome","Endereco","Lat","Lng","Ativa")
-    VALUES ($1,$2,$3,$4,$5,$6)
-    ON CONFLICT ("Id") DO UPDATE SET "Nome"=$2,"Endereco"=$3,"Lat"=$4,"Lng"=$5,"Ativa"=$6
-  `, [o.id, o.nome, o.endereco, o.lat, o.lng, o.ativa]);
+  await q(`INSERT INTO obra (id,nome,endereco,lat,lng,ativa) VALUES ($1,$2,$3,$4,$5,$6)
+    ON CONFLICT (id) DO UPDATE SET nome=$2,endereco=$3,lat=$4,lng=$5,ativa=$6`,
+    [o.id, o.nome, o.endereco, o.lat, o.lng, o.ativa]);
   res.json({ ok: true });
 }));
 
 router.delete('/obras/:id', wrap(async (req, res) => {
-  const c = await q('SELECT COUNT(*) FROM "Presenca" WHERE "ObraId"=$1', [req.params.id]);
+  const c = await q('SELECT COUNT(*) FROM presenca WHERE obraid=$1', [req.params.id]);
   if (Number(c.rows[0].count) > 0)
     return res.status(409).json({ error: 'Obra possui presencas cadastradas.' });
-  await q('DELETE FROM "Obra" WHERE "Id"=$1', [req.params.id]);
+  await q('DELETE FROM obra WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 }));
 
 // ── Presenças ────────────────────────────────────────────────────────────────
 router.get('/presencas', wrap(async (req, res) => {
   const { data, funcionarioId, de, ate } = req.query;
-  let sql = 'SELECT * FROM "vw_PresencaCompleta" WHERE 1=1';
+  let sql = 'SELECT * FROM vw_presencacompleta WHERE 1=1';
   const params = [];
-  if (data)          { params.push(data);          sql += ` AND "Data"=$${params.length}`; }
-  if (de)            { params.push(de);             sql += ` AND "Data">=$${params.length}`; }
-  if (ate)           { params.push(ate);            sql += ` AND "Data"<=$${params.length}`; }
-  if (funcionarioId) { params.push(funcionarioId);  sql += ` AND "FuncionarioId"=$${params.length}`; }
-  sql += ' ORDER BY "Data" DESC, "HoraEntrada"';
+  if (data)          { params.push(data);         sql += ` AND data=$${params.length}`; }
+  if (de)            { params.push(de);            sql += ` AND data>=$${params.length}`; }
+  if (ate)           { params.push(ate);           sql += ` AND data<=$${params.length}`; }
+  if (funcionarioId) { params.push(funcionarioId); sql += ` AND funcionarioid=$${params.length}`; }
+  sql += ' ORDER BY data DESC, horaentrada';
   const r = await q(sql, params);
-  res.json(r.rows);
+  res.json(r.rows.map(mapPresenca));
 }));
 
 router.post('/presencas', wrap(async (req, res) => {
   const b = req.body;
-  const existe = await q('SELECT "Id" FROM "Presenca" WHERE "Id"=$1', [b.id]);
+  const existe = await q('SELECT id FROM presenca WHERE id=$1', [b.id]);
   if (existe.rows.length > 0) {
-    await q(`UPDATE "Presenca" SET "HoraSaida"=$2,"Status"=$3,"DistanciaObra"=$4 WHERE "Id"=$1`,
+    await q('UPDATE presenca SET horasaida=$2,status=$3,distanciaobra=$4 WHERE id=$1',
       [b.id, b.horaSaida || null, b.status, b.distanciaObra]);
   } else {
-    await q(`
-      INSERT INTO "Presenca" ("Id","FuncionarioId","ObraId","Data","HoraEntrada","Lat","Lng","DistanciaObra","Status")
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-    `, [b.id, b.funcionarioId, b.obraId, b.data, b.horaEntrada, b.lat, b.lng, b.distanciaObra, b.status]);
+    await q(`INSERT INTO presenca (id,funcionarioid,obraid,data,horaentrada,lat,lng,distanciaobra,status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [b.id, b.funcionarioId, b.obraId, b.data, b.horaEntrada, b.lat, b.lng, b.distanciaObra, b.status]);
   }
   res.json({ ok: true });
 }));
 
 router.delete('/presencas/:id', wrap(async (req, res) => {
-  await q('DELETE FROM "Presenca" WHERE "Id"=$1', [req.params.id]);
+  await q('DELETE FROM presenca WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 }));
 
 router.post('/presencas/:id/foto', upload.single('foto'), wrap(async (req, res) => {
-  const { id } = req.params;
   const tipo = req.body.tipo || 'entrada';
   if (!req.file) return res.status(400).json({ error: 'Foto ausente' });
   const dataUrl = `data:image/jpeg;base64,${req.file.buffer.toString('base64')}`;
-  const col = tipo === 'entrada' ? '"FotoEntrada"' : '"FotoSaida"';
-  await q(`UPDATE "Presenca" SET ${col}=$2 WHERE "Id"=$1`, [id, dataUrl]);
+  const col = tipo === 'entrada' ? 'fotoentrada' : 'fotosaida';
+  await q(`UPDATE presenca SET ${col}=$2 WHERE id=$1`, [req.params.id, dataUrl]);
   res.json({ url: dataUrl });
 }));
 
 // ── Usuários ─────────────────────────────────────────────────────────────────
 router.get('/usuarios', wrap(async (_req, res) => {
   const r = await q(`
-    SELECT u."Id", u."Login", u."Email", u."Ativo", u."FuncionarioId",
-           p."Nome" AS "Perfil", f."Nome" AS "FuncionarioNome"
-    FROM "Usuario" u
-    JOIN "Perfil" p ON p."Id" = u."PerfilId"
-    LEFT JOIN "Funcionario" f ON f."Id" = u."FuncionarioId"
-    ORDER BY u."Login"
+    SELECT u.id, u.login, u.email, u.ativo, u.funcionarioid,
+           p.nome AS perfil, f.nome AS funcionarionome
+    FROM usuario u
+    JOIN perfil p ON p.id = u.perfilid
+    LEFT JOIN funcionario f ON f.id = u.funcionarioid
+    ORDER BY u.login
   `);
-  res.json(r.rows);
+  res.json(r.rows.map(mapUsuario));
 }));
 
 router.post('/usuarios', wrap(async (req, res) => {
   const b = req.body;
   const perfilId = b.perfil === 'admin' ? 1 : 2;
   await q(`
-    INSERT INTO "Usuario" ("Id","Login","Email","PerfilId","FuncionarioId","SenhaHash","Ativo")
+    INSERT INTO usuario (id,login,email,perfilid,funcionarioid,senhahash,ativo)
     VALUES ($1,$2,$3,$4,$5,$6,$7)
-    ON CONFLICT ("Id") DO UPDATE SET
-      "Login"=$2,"Email"=$3,"PerfilId"=$4,"FuncionarioId"=$5,"Ativo"=$7,
-      "SenhaHash"=CASE WHEN $6 IS NOT NULL THEN $6 ELSE "Usuario"."SenhaHash" END
+    ON CONFLICT (id) DO UPDATE SET
+      login=$2,email=$3,perfilid=$4,funcionarioid=$5,ativo=$7,
+      senhahash=CASE WHEN $6 IS NOT NULL THEN $6 ELSE usuario.senhahash END
   `, [b.id, b.login, b.email || null, perfilId, b.funcionarioId || null, b.senhaHash || null, b.ativo]);
   res.json({ ok: true });
 }));
 
 router.delete('/usuarios/:id', wrap(async (req, res) => {
-  await q('DELETE FROM "Usuario" WHERE "Id"=$1', [req.params.id]);
+  await q('DELETE FROM usuario WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 }));
 
 router.post('/usuarios/:id/reset-senha', wrap(async (req, res) => {
-  const r = await q('SELECT "Login","Email" FROM "Usuario" WHERE "Id"=$1 AND "Ativo"=TRUE', [req.params.id]);
+  const r = await q('SELECT login,email FROM usuario WHERE id=$1 AND ativo=TRUE', [req.params.id]);
   const user = r.rows[0];
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
-  if (!user.Email) return res.status(400).json({ error: 'Usuário não possui e-mail cadastrado.' });
+  if (!user.email) return res.status(400).json({ error: 'Usuário não possui e-mail cadastrado.' });
   const novaSenha = gerarSenhaAleatoria();
-  await q('UPDATE "Usuario" SET "SenhaHash"=$2 WHERE "Id"=$1', [req.params.id, sha256(novaSenha)]);
+  await q('UPDATE usuario SET senhahash=$2 WHERE id=$1', [req.params.id, sha256(novaSenha)]);
   await mailer.sendMail({
-    from: `"Controla Obra" <${process.env.SMTP_USER}>`, to: user.Email,
+    from: `"Controla Obra" <${process.env.SMTP_USER}>`, to: user.email,
     subject: 'Sua nova senha - Controla Obra',
-    html: `<p>Olá <strong>${user.Login}</strong>, sua nova senha: <strong>${novaSenha}</strong></p>`,
+    html: `<p>Olá <strong>${user.login}</strong>, sua nova senha: <strong>${novaSenha}</strong></p>`,
   });
   res.json({ ok: true });
 }));
@@ -192,28 +225,33 @@ router.post('/usuarios/:id/reset-senha', wrap(async (req, res) => {
 router.get('/relatorio', wrap(async (req, res) => {
   const { dataInicio, dataFim, obraId } = req.query;
   const r = await q(`
-    SELECT f."Nome" AS "Funcionario", f."Funcao",
-           COUNT(*) AS "DiasPresente",
-           SUM(CASE p."Status" WHEN 'meio-periodo' THEN 0.5 ELSE 1 END) AS "DiasEfetivos",
-           SUM(CASE p."Status" WHEN 'meio-periodo' THEN f."Diaria"/2 ELSE f."Diaria" END) AS "TotalDiarias",
-           SUM(f."Transporte") AS "TotalTransporte",
-           SUM(f."Alimentacao") AS "TotalAlimentacao",
-           SUM(CASE p."Status" WHEN 'meio-periodo' THEN (f."Diaria"/2)+f."Transporte"+f."Alimentacao"
-                               ELSE f."Diaria"+f."Transporte"+f."Alimentacao" END) AS "CustoTotal"
-    FROM "Presenca" p
-    JOIN "Funcionario" f ON f."Id" = p."FuncionarioId"
-    JOIN "Obra" o ON o."Id" = p."ObraId"
-    WHERE p."Data" BETWEEN $1 AND $2
-      AND p."Status" <> 'ausente'
-      AND ($3::varchar IS NULL OR p."ObraId" = $3)
-    GROUP BY f."Id", f."Nome", f."Funcao"
-    ORDER BY "CustoTotal" DESC
+    SELECT f.nome AS funcionario, f.funcao,
+           COUNT(*) AS diaspresente,
+           SUM(CASE p.status WHEN 'meio-periodo' THEN 0.5 ELSE 1 END) AS diasefetivos,
+           SUM(CASE p.status WHEN 'meio-periodo' THEN f.diaria/2 ELSE f.diaria END) AS totaldiarias,
+           SUM(f.transporte) AS totaltransporte,
+           SUM(f.alimentacao) AS totalalimentacao,
+           SUM(CASE p.status WHEN 'meio-periodo' THEN (f.diaria/2)+f.transporte+f.alimentacao
+                             ELSE f.diaria+f.transporte+f.alimentacao END) AS custototal
+    FROM presenca p
+    JOIN funcionario f ON f.id = p.funcionarioid
+    JOIN obra o ON o.id = p.obraid
+    WHERE p.data BETWEEN $1 AND $2
+      AND p.status <> 'ausente'
+      AND ($3::varchar IS NULL OR p.obraid = $3)
+    GROUP BY f.id, f.nome, f.funcao
+    ORDER BY custototal DESC
   `, [dataInicio, dataFim, obraId || null]);
-  res.json(r.rows);
+  res.json(r.rows.map(r => ({
+    Funcionario: r.funcionario, Funcao: r.funcao,
+    DiasPresente: r.diaspresente, DiasEfetivos: r.diasefetivos,
+    TotalDiarias: r.totaldiarias, TotalTransporte: r.totaltransporte,
+    TotalAlimentacao: r.totalalimentacao, CustoTotal: r.custototal,
+  })));
 }));
 
 app.use('/api', router);
-app.use('/',    router);
+app.use('/', router);
 
 app.use((err, _req, res, _next) => {
   console.error('[API Error]', err.message);
