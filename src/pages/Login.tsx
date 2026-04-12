@@ -4,7 +4,8 @@ import { HardHat, LogIn } from 'lucide-react';
 
 export default function Login() {
   const { login, loading, erro } = useAuth();
-  const [form, setForm] = useState({ login: '', senha: '' });
+  const loginParam = new URLSearchParams(window.location.search).get('login') ?? '';
+  const [form, setForm] = useState({ login: loginParam, senha: '' });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

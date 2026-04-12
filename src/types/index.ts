@@ -1,3 +1,11 @@
+export type Cargo = {
+  id: string;
+  nome: string;
+  diaria: number;
+  transporte: number;
+  alimentacao: number;
+};
+
 export type Funcionario = {
   id: string;
   nome: string;

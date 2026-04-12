@@ -1,4 +1,4 @@
-import type { Funcionario, Obra, Presenca, Usuario, UsuarioAdmin } from '../types';
+import type { Funcionario, Obra, Presenca, Usuario, UsuarioAdmin, Cargo } from '../types';
 
 const BASE = '/api';
 
@@ -32,6 +32,9 @@ export const api = {
     const data = await post<{ Id: string; Login: string; Perfil: string; FuncionarioId: string | null; FuncionarioNome: string | null; Funcao: string | null; }>('/login', { login, senhaHash });
     return { id: data.Id, login: data.Login, perfil: data.Perfil as Usuario['perfil'], funcionarioId: data.FuncionarioId, funcionarioNome: data.FuncionarioNome, funcao: data.Funcao };
   },
+  getCargos: () => get<Cargo[]>('/cargos'),
+  saveCargo: (c: Cargo) => post('/cargos', c),
+  deleteCargo: (id: string) => del('/cargos/' + id),
   getFuncionarios: () => get<Funcionario[]>('/funcionarios').then(l => l.map(r => mapFuncionario(r as Record<string, unknown>))),
   getObras: () => get<Obra[]>('/obras').then(l => l.map(r => mapObra(r as Record<string, unknown>))),
   getPresencas: (params?: { data?: string; funcionarioId?: string; de?: string; ate?: string }) => {
@@ -43,7 +46,8 @@ export const api = {
     const q = qs.toString() ? '?' + qs.toString() : '';
     return get<Presenca[]>('/presencas' + q).then(l => l.map(r => mapPresenca(r as Record<string, unknown>)));
   },
-  saveFuncionario: (f: Funcionario) => post('/funcionarios', f),
+  saveFuncionario: (f: Funcionario, usuario?: { id: string; login: string; senhaHash?: string; email?: string }) =>
+    post('/funcionarios', { ...f, usuario }),
   deleteFuncionario: (id: string) => del('/funcionarios/' + id),
   saveObra: (o: Obra) => post('/obras', o),
   deleteObra: (id: string) => del('/obras/' + id),

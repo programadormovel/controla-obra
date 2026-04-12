@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, ClipboardCheck, BarChart2, HardHat, LogOut, Building2, UserCog, Menu, X, CalendarDays } from 'lucide-react';
+import { LayoutDashboard, Users, ClipboardCheck, BarChart2, HardHat, LogOut, Building2, UserCog, Menu, X, CalendarDays, Briefcase } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -13,6 +13,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { to: '/presenca', icon: <ClipboardCheck size={18} />, label: 'Presença' },
     ...(isAdmin ? [
       { to: '/funcionarios', icon: <Users size={18} />, label: 'Funcionários' },
+      { to: '/cargos', icon: <Briefcase size={18} />, label: 'Cargos' },
       { to: '/obras', icon: <Building2 size={18} />, label: 'Obras' },
       { to: '/gestao-presencas', icon: <CalendarDays size={18} />, label: 'Presenças' },
       { to: '/relatorio', icon: <BarChart2 size={18} />, label: 'Relatório' },

@@ -7,6 +7,7 @@ import Presenca from './pages/Presenca';
 import Funcionarios from './pages/Funcionarios';
 import Obras from './pages/Obras';
 import Relatorio from './pages/Relatorio';
+import Cargos from './pages/Cargos';
 import Usuarios from './pages/Usuarios';
 import GestaoPresencas from './pages/GestaoPresencas';
 
@@ -43,6 +44,7 @@ function AppRoutes() {
         <Route path="/obras" element={<AdminRoute><Obras /></AdminRoute>} />
         <Route path="/gestao-presencas" element={<AdminRoute><GestaoPresencas /></AdminRoute>} />
         <Route path="/relatorio" element={<AdminRoute><Relatorio /></AdminRoute>} />
+        <Route path="/cargos" element={<AdminRoute><Cargos /></AdminRoute>} />
         <Route path="/usuarios" element={<AdminRoute><Usuarios /></AdminRoute>} />
         <Route path="/login" element={<Navigate to={usuario.perfil === 'admin' ? '/' : '/presenca'} replace />} />
         <Route path="*" element={<Navigate to={usuario.perfil === 'admin' ? '/' : '/presenca'} replace />} />
