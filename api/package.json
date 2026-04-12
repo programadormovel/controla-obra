@@ -1,1 +1,10 @@
-{ "type": "commonjs" }
+{
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^4.22.1",
+    "pg": "^8.20.0",
+    "multer": "^2.1.1",
+    "nodemailer": "^8.0.5",
+    "serverless-http": "^3.2.0"
+  }
+}
