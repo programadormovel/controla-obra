@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Share2, MessageCircle, Mail, FileText, FileSpreadsheet, X } from 'lucide-react';
 import { exportCsv, exportXlsx, type ExportRow } from '../utils/export';
 
@@ -15,6 +15,7 @@ type Section = 'compartilhar' | 'exportar';
 export default function ShareButton({ buildTexto, assunto, adminEmail, buildRows, exportFilename = 'export' }: Props) {
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<Section>('compartilhar');
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   function close() { setOpen(false); setSection('compartilhar'); }
 
@@ -49,7 +50,7 @@ export default function ShareButton({ buildTexto, assunto, adminEmail, buildRows
   });
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
+    <div style={{ position: 'relative', display: 'inline-block' }} ref={wrapRef}>
       <button onClick={() => setOpen(o => !o)} className="btn btn-secondary" title="Compartilhar / Exportar">
         <Share2 size={15} /> Exportar
       </button>
@@ -61,6 +62,8 @@ export default function ShareButton({ buildTexto, assunto, adminEmail, buildRows
             position: 'absolute', top: '110%', right: 0, zIndex: 100,
             background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
             boxShadow: '0 8px 24px rgba(0,0,0,.13)', minWidth: 220, padding: 8,
+            /* garante que não saia da tela à esquerda */
+            maxWidth: 'calc(100vw - 24px)',
           }}>
             {/* header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 4px 8px', marginBottom: 6 }}>
