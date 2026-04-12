@@ -3,6 +3,8 @@ import { db, calcCustoDiario } from '../services/storage';
 import type { Presenca, Funcionario, Obra } from '../types';
 import { Search } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
+import ShareButton from '../components/ShareButton';
+import { useAdminEmail } from '../hooks/useAdminEmail';
 
 export default function Relatorio() {
   const hoje = new Date().toISOString().split('T')[0];
@@ -14,6 +16,7 @@ export default function Relatorio() {
   const [obras, setObras]             = useState<Obra[]>([]);
   const [carregando, setCarregando]   = useState(false);
   const { run } = useApi();
+  const adminEmail = useAdminEmail();
 
   useEffect(() => {
     run(() => Promise.all([db.getFuncionariosAsync(), db.getObrasAsync()])
@@ -58,10 +61,26 @@ export default function Relatorio() {
     { label: 'CUSTO TOTAL',       value: `R$ ${totais.total.toFixed(2)}`,       color: '#dc2626' },
   ];
 
+  function buildTexto() {
+    const obraNome = obraFiltro ? obras.find(o => o.id === obraFiltro)?.nome : 'Todas';
+    const linhas = porFuncionario.map(r =>
+      `• ${r.nome} (${r.funcao}) — ${r.dias} dia(s) | Diárias: R$${r.diarias.toFixed(2)} | Transp: R$${r.transporte.toFixed(2)} | Alim: R$${r.alimentacao.toFixed(2)} | Total: R$${r.total.toFixed(2)}`
+    );
+    return [
+      `*Relatório de Custos*`,
+      `Período: ${dataInicio} a ${dataFim} | Obra: ${obraNome}`,
+      '',
+      ...linhas,
+      '',
+      `TOTAL: R$${totais.total.toFixed(2)}`,
+    ].join('\n');
+  }
+
   return (
     <div>
       <div className="page-header">
         <h2 className="page-title">Relatório de Custos</h2>
+        <ShareButton buildTexto={buildTexto} assunto={`Relatório de Custos ${dataInicio} a ${dataFim}`} adminEmail={adminEmail} />
       </div>
 
       <div className="card card-body" style={{ marginBottom: 20 }}>

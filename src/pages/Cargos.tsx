@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import type { Cargo } from '../types';
 import { Plus, Edit2, X, Save, Trash2 } from 'lucide-react';
+import ShareButton from '../components/ShareButton';
+import { useAdminEmail } from '../hooks/useAdminEmail';
 
 const vazio: Omit<Cargo, 'id'> = { nome: '', diaria: 0, transporte: 0, alimentacao: 0 };
 
@@ -12,6 +14,14 @@ export default function Cargos() {
   const [form, setForm] = useState<Omit<Cargo, 'id'>>(vazio);
   const [salvando, setSalvando] = useState(false);
   const [confirmExcluir, setConfirmExcluir] = useState<Cargo | null>(null);
+  const adminEmail = useAdminEmail();
+
+  function buildTexto() {
+    const linhas = lista.map(c =>
+      `• ${c.nome} — Diária: R$${c.diaria.toFixed(2)} | Transp: R$${c.transporte.toFixed(2)} | Alim: R$${c.alimentacao.toFixed(2)} | Total: R$${(c.diaria + c.transporte + c.alimentacao).toFixed(2)}`
+    );
+    return `*Cargos Cadastrados*\n${linhas.join('\n')}`;
+  }
 
   async function carregar() { setLista(await api.getCargos()); }
   useEffect(() => { carregar(); }, []);
@@ -42,7 +52,10 @@ export default function Cargos() {
     <div>
       <div className="page-header">
         <h2 className="page-title">Cargos</h2>
-        <button onClick={abrirNovo} className="btn btn-primary"><Plus size={16} /> Novo Cargo</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <ShareButton buildTexto={buildTexto} assunto="Cargos Cadastrados" adminEmail={adminEmail} />
+          <button onClick={abrirNovo} className="btn btn-primary"><Plus size={16} /> Novo Cargo</button>
+        </div>
       </div>
 
       <div className="card">

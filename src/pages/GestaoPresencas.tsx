@@ -3,6 +3,8 @@ import { db } from '../services/storage';
 import type { Presenca, Funcionario, Obra } from '../types';
 import { Edit2, Trash2, Save, X, AlertTriangle, Search } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
+import ShareButton from '../components/ShareButton';
+import { useAdminEmail } from '../hooks/useAdminEmail';
 
 const hoje = new Date().toISOString().split('T')[0];
 const umMesAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -24,6 +26,31 @@ export default function GestaoPresencas() {
   const [salvando, setSalvando]       = useState(false);
   const [erro, setErro]               = useState<string | null>(null);
   const { run } = useApi();
+  const adminEmail = useAdminEmail();
+
+  function buildTexto() {
+    const porDataLocal = presencas.reduce<Record<string, Presenca[]>>((acc, p) => {
+      (acc[p.data] ??= []).push(p); return acc;
+    }, {});
+    const datasLocal = Object.keys(porDataLocal).sort((a, b) => b.localeCompare(a));
+    const contadores = { presente: 0, ausente: 0, 'meio-periodo': 0 };
+    presencas.forEach(p => contadores[p.status]++);
+    const linhas = datasLocal.map(data => {
+      const regs = porDataLocal[data];
+      const resumo = regs.map(p => {
+        const f = funcionarios.find(x => x.id === p.funcionarioId);
+        const o = obras.find(x => x.id === p.obraId);
+        return `  - ${f?.nome ?? p.funcionarioId} @ ${o?.nome ?? p.obraId}: ${p.horaEntrada}–${p.horaSaida ?? '?'} [${p.status}]`;
+      });
+      return `${data}\n${resumo.join('\n')}`;
+    });
+    return [
+      `*Presenças ${filtroInicio} a ${filtroFim}*`,
+      `Total: ${presencas.length} | Presentes: ${contadores.presente} | Meio período: ${contadores['meio-periodo']} | Ausentes: ${contadores.ausente}`,
+      '',
+      ...linhas,
+    ].join('\n');
+  }
 
   useEffect(() => {
     run(() => Promise.all([db.getFuncionariosAsync(), db.getObrasAsync()]).then(([f, o]) => {
@@ -80,6 +107,7 @@ export default function GestaoPresencas() {
     <div>
       <div className="page-header">
         <h2 className="page-title">Gestão de Presenças</h2>
+        <ShareButton buildTexto={buildTexto} assunto={`Presenças ${filtroInicio} a ${filtroFim}`} adminEmail={adminEmail} />
       </div>
 
       {/* Filtros */}

@@ -3,6 +3,8 @@ import { db } from '../services/storage';
 import type { Obra } from '../types';
 import { Plus, Edit2, X, Save, MapPin, Trash2, Building2 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
+import ShareButton from '../components/ShareButton';
+import { useAdminEmail } from '../hooks/useAdminEmail';
 
 const vazio: Omit<Obra, 'id'> = { nome: '', endereco: '', lat: 0, lng: 0, ativa: true };
 
@@ -17,6 +19,14 @@ export default function Obras() {
   const [confirmExcluir, setConfirmExcluir] = useState<Obra | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const { run } = useApi();
+  const adminEmail = useAdminEmail();
+
+  function buildTexto() {
+    const linhas = lista.map(o =>
+      `• ${o.nome} — ${o.endereco} [${o.ativa ? 'Ativa' : 'Inativa'}]`
+    );
+    return `*Obras Cadastradas*\n${linhas.join('\n')}`;
+  }
 
   async function carregar() {
     await run(async () => {
@@ -72,7 +82,10 @@ export default function Obras() {
     <div>
       <div className="page-header">
         <h2 className="page-title">Obras</h2>
-        <button onClick={abrirNovo} className="btn btn-primary"><Plus size={16} /> Nova Obra</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <ShareButton buildTexto={buildTexto} assunto="Obras Cadastradas" adminEmail={adminEmail} />
+          <button onClick={abrirNovo} className="btn btn-primary"><Plus size={16} /> Nova Obra</button>
+        </div>
       </div>
       <div className="card">
         <div className="table-wrap">

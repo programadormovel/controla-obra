@@ -4,8 +4,9 @@ import { db } from '../services/storage';
 import { api } from '../services/api';
 import type { Funcionario, Obra, UsuarioAdmin, Cargo } from '../types';
 import { Edit2, X, Save, UserPlus, Trash2, UserX, Share2, Plus } from 'lucide-react';
-
 import { useApi } from '../hooks/useApi';
+import ShareButton from '../components/ShareButton';
+import { useAdminEmail } from '../hooks/useAdminEmail';
 
 async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -36,6 +37,15 @@ export default function Funcionarios() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [confirmExcluir, setConfirmExcluir] = useState<Funcionario | null>(null);
+  const adminEmail = useAdminEmail();
+
+  function buildTexto() {
+    const linhas = lista.map(f => {
+      const obraNome = obras.find(o => o.id === f.obraId)?.nome ?? '—';
+      return `• ${f.nome} (${f.funcao}) — Obra: ${obraNome} | Total/dia: R$${(f.diaria + f.transporte + f.alimentacao).toFixed(2)} | ${f.ativo ? 'Ativo' : 'Inativo'}`;
+    });
+    return `*Funcionários*\n${linhas.join('\n')}`;
+  }
 
   async function carregar() {
     await run(async () => {
@@ -123,7 +133,10 @@ export default function Funcionarios() {
     <div>
       <div className="page-header">
         <h2 className="page-title">Funcionários</h2>
-        <button onClick={abrirNovo} className="btn btn-primary"><UserPlus size={16} /> Novo Funcionário</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <ShareButton buildTexto={buildTexto} assunto="Lista de Funcionários" adminEmail={adminEmail} />
+          <button onClick={abrirNovo} className="btn btn-primary"><UserPlus size={16} /> Novo Funcionário</button>
+        </div>
       </div>
 
       <div className="card">
