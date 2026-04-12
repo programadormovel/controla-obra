@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import type { Cargo } from '../types';
-import { Plus, Edit2, X, Save, Trash2 } from 'lucide-react';
+import { Plus, Edit2, X, Save, Trash2, Search } from 'lucide-react';
 import ShareButton from '../components/ShareButton';
 import { useAdminEmail } from '../hooks/useAdminEmail';
+import Pagination from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 
 const vazio: Omit<Cargo, 'id'> = { nome: '', diaria: 0, transporte: 0, alimentacao: 0 };
 
@@ -14,7 +16,15 @@ export default function Cargos() {
   const [form, setForm] = useState<Omit<Cargo, 'id'>>(vazio);
   const [salvando, setSalvando] = useState(false);
   const [confirmExcluir, setConfirmExcluir] = useState<Cargo | null>(null);
+  const [busca, setBusca] = useState('');
   const adminEmail = useAdminEmail();
+
+  const filtrada = useMemo(() => {
+    const b = busca.toLowerCase();
+    return lista.filter(c => !b || c.nome.toLowerCase().includes(b));
+  }, [lista, busca]);
+
+  const pg = usePagination(filtrada);
 
   function buildTexto() {
     const linhas = lista.map(c =>
@@ -58,6 +68,14 @@ export default function Cargos() {
         </div>
       </div>
 
+      <div className="card card-body" style={{ marginBottom: 16, padding: '12px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Search size={15} color="#94a3b8" />
+          <input className="form-input" style={{ maxWidth: 280 }} placeholder="Buscar cargo..." value={busca} onChange={e => setBusca(e.target.value)} />
+          {busca && <button className="btn btn-secondary btn-sm" onClick={() => setBusca('')}>Limpar</button>}
+        </div>
+      </div>
+
       <div className="card">
         <div className="table-wrap">
           <table>
@@ -65,8 +83,8 @@ export default function Cargos() {
               <tr>{['Cargo', 'Diária', 'Transporte', 'Alimentação', 'Total/Dia', 'Ações'].map(h => <th key={h}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {lista.length === 0 && <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Nenhum cargo cadastrado</td></tr>}
-              {lista.map(c => (
+              {pg.paged.length === 0 && <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>{busca ? 'Nenhum cargo encontrado' : 'Nenhum cargo cadastrado'}</td></tr>}
+              {pg.paged.map(c => (
                 <tr key={c.id}>
                   <td style={{ fontWeight: 500 }}>{c.nome}</td>
                   <td>R$ {c.diaria.toFixed(2)}</td>
@@ -86,6 +104,7 @@ export default function Cargos() {
             </tbody>
           </table>
         </div>
+        <Pagination page={pg.page} totalPages={pg.totalPages} pageSize={pg.pageSize} total={pg.total} start={pg.start} end={pg.end} onPage={pg.setPage} onPageSize={pg.setPageSize} />
       </div>
 
       {modal && (

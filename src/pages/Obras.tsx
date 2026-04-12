@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/storage';
 import type { Obra } from '../types';
-import { Plus, Edit2, X, Save, MapPin, Trash2, Building2 } from 'lucide-react';
+import { Plus, Edit2, X, Save, MapPin, Trash2, Building2, Search } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import ShareButton from '../components/ShareButton';
 import { useAdminEmail } from '../hooks/useAdminEmail';
+import Pagination from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 
 const vazio: Omit<Obra, 'id'> = { nome: '', endereco: '', lat: 0, lng: 0, ativa: true };
 
@@ -20,6 +22,18 @@ export default function Obras() {
   const [erro, setErro] = useState<string | null>(null);
   const { run } = useApi();
   const adminEmail = useAdminEmail();
+  const [busca, setBusca] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState<'todas' | 'ativa' | 'inativa'>('todas');
+
+  const filtrada = useMemo(() => {
+    const b = busca.toLowerCase();
+    return lista.filter(o =>
+      (!b || o.nome.toLowerCase().includes(b) || o.endereco.toLowerCase().includes(b)) &&
+      (filtroStatus === 'todas' || (filtroStatus === 'ativa' ? o.ativa : !o.ativa))
+    );
+  }, [lista, busca, filtroStatus]);
+
+  const pg = usePagination(filtrada);
 
   function buildTexto() {
     const linhas = lista.map(o =>
@@ -87,6 +101,19 @@ export default function Obras() {
           <button onClick={abrirNovo} className="btn btn-primary"><Plus size={16} /> Nova Obra</button>
         </div>
       </div>
+      <div className="card card-body" style={{ marginBottom: 16, padding: '12px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <Search size={15} color="#94a3b8" />
+          <input className="form-input" style={{ maxWidth: 260 }} placeholder="Buscar nome ou endereço..." value={busca} onChange={e => setBusca(e.target.value)} />
+          <select className="form-input" style={{ width: 'auto' }} value={filtroStatus} onChange={e => setFiltroStatus(e.target.value as typeof filtroStatus)}>
+            <option value="todas">Todas</option>
+            <option value="ativa">Ativas</option>
+            <option value="inativa">Inativas</option>
+          </select>
+          {(busca || filtroStatus !== 'todas') && <button className="btn btn-secondary btn-sm" onClick={() => { setBusca(''); setFiltroStatus('todas'); }}>Limpar</button>}
+        </div>
+      </div>
+
       <div className="card">
         <div className="table-wrap">
           <table>
@@ -94,8 +121,8 @@ export default function Obras() {
               <tr>{['Nome', 'Endereço', 'Latitude', 'Longitude', 'Status', 'Ações'].map(h => <th key={h}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {lista.length === 0 && <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Nenhuma obra cadastrada</td></tr>}
-              {lista.map(o => {
+              {pg.paged.length === 0 && <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>{busca || filtroStatus !== 'todas' ? 'Nenhuma obra encontrada' : 'Nenhuma obra cadastrada'}</td></tr>}
+              {pg.paged.map(o => {
                 const temPresenca = presencaObraIds.has(o.id);
                 return (
                   <tr key={o.id} style={{ opacity: o.ativa ? 1 : 0.5 }}>
@@ -132,6 +159,7 @@ export default function Obras() {
             </tbody>
           </table>
         </div>
+        <Pagination page={pg.page} totalPages={pg.totalPages} pageSize={pg.pageSize} total={pg.total} start={pg.start} end={pg.end} onPage={pg.setPage} onPageSize={pg.setPageSize} />
       </div>
       {modal && (
         <div className="modal-overlay">

@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/storage';
 import type { Presenca, Funcionario, Obra } from '../types';
 import { Edit2, Trash2, Save, X, AlertTriangle, Search } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import ShareButton from '../components/ShareButton';
 import { useAdminEmail } from '../hooks/useAdminEmail';
+import Pagination from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 
 const hoje = new Date().toISOString().split('T')[0];
 const umMesAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -13,31 +15,32 @@ const statusColor: Record<string, string> = { presente: '#059669', ausente: '#dc
 const statusClass: Record<string, string> = { presente: 'status-presente', ausente: 'status-ausente', 'meio-periodo': 'status-meio' };
 
 export default function GestaoPresencas() {
-  const [presencas, setPresencas]     = useState<Presenca[]>([]);
+  const [presencas, setPresencas]       = useState<Presenca[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
-  const [obras, setObras]             = useState<Obra[]>([]);
-  const [carregando, setCarregando]   = useState(false);
+  const [obras, setObras]               = useState<Obra[]>([]);
+  const [carregando, setCarregando]     = useState(false);
   const [filtroFuncId, setFiltroFuncId] = useState('');
   const [filtroInicio, setFiltroInicio] = useState(umMesAtras);
-  const [filtroFim, setFiltroFim]     = useState(hoje);
-  const [editId, setEditId]           = useState<string | null>(null);
-  const [editForm, setEditForm]       = useState<Partial<Presenca>>({});
+  const [filtroFim, setFiltroFim]       = useState(hoje);
+  const [filtroObra, setFiltroObra]     = useState('');
+  const [filtroStatus, setFiltroStatus] = useState('');
+  const [editId, setEditId]             = useState<string | null>(null);
+  const [editForm, setEditForm]         = useState<Partial<Presenca>>({});
   const [confirmExcluir, setConfirmExcluir] = useState<Presenca | null>(null);
-  const [salvando, setSalvando]       = useState(false);
-  const [erro, setErro]               = useState<string | null>(null);
+  const [salvando, setSalvando]         = useState(false);
+  const [erro, setErro]                 = useState<string | null>(null);
   const { run } = useApi();
   const adminEmail = useAdminEmail();
 
   function buildTexto() {
-    const porDataLocal = presencas.reduce<Record<string, Presenca[]>>((acc, p) => {
+    const porDataLocal = presencasFiltradas.reduce<Record<string, Presenca[]>>((acc, p) => {
       (acc[p.data] ??= []).push(p); return acc;
     }, {});
     const datasLocal = Object.keys(porDataLocal).sort((a, b) => b.localeCompare(a));
     const contadores = { presente: 0, ausente: 0, 'meio-periodo': 0 };
-    presencas.forEach(p => contadores[p.status]++);
+    presencasFiltradas.forEach(p => contadores[p.status]++);
     const linhas = datasLocal.map(data => {
-      const regs = porDataLocal[data];
-      const resumo = regs.map(p => {
+      const resumo = porDataLocal[data].map(p => {
         const f = funcionarios.find(x => x.id === p.funcionarioId);
         const o = obras.find(x => x.id === p.obraId);
         return `  - ${f?.nome ?? p.funcionarioId} @ ${o?.nome ?? p.obraId}: ${p.horaEntrada}–${p.horaSaida ?? '?'} [${p.status}]`;
@@ -46,7 +49,7 @@ export default function GestaoPresencas() {
     });
     return [
       `*Presenças ${filtroInicio} a ${filtroFim}*`,
-      `Total: ${presencas.length} | Presentes: ${contadores.presente} | Meio período: ${contadores['meio-periodo']} | Ausentes: ${contadores.ausente}`,
+      `Total: ${presencasFiltradas.length} | Presentes: ${contadores.presente} | Meio período: ${contadores['meio-periodo']} | Ausentes: ${contadores.ausente}`,
       '',
       ...linhas,
     ].join('\n');
@@ -63,15 +66,28 @@ export default function GestaoPresencas() {
   async function buscar() {
     setCarregando(true);
     try {
-      const params: { de?: string; ate?: string; funcionarioId?: string } = {
-        de: filtroInicio, ate: filtroFim,
-      };
+      const params: { de?: string; ate?: string; funcionarioId?: string } = { de: filtroInicio, ate: filtroFim };
       if (filtroFuncId) params.funcionarioId = filtroFuncId;
       setPresencas(await db.getPresencasAsync(params));
-    } finally {
-      setCarregando(false);
-    }
+    } finally { setCarregando(false); }
   }
+
+  // filtros client-side (obra e status aplicados após busca)
+  const presencasFiltradas = useMemo(() =>
+    presencas.filter(p =>
+      (!filtroObra || p.obraId === filtroObra) &&
+      (!filtroStatus || p.status === filtroStatus)
+    ), [presencas, filtroObra, filtroStatus]);
+
+  // agrupa por data
+  const porData = useMemo(() => presencasFiltradas.reduce<Record<string, Presenca[]>>((acc, p) => {
+    (acc[p.data] ??= []).push(p); return acc;
+  }, {}), [presencasFiltradas]);
+
+  const datas = useMemo(() => Object.keys(porData).sort((a, b) => b.localeCompare(a)), [porData]);
+
+  // pagina os grupos de data
+  const pg = usePagination(datas, 5);
 
   function iniciarEdicao(p: Presenca) {
     setEditId(p.id);
@@ -96,12 +112,7 @@ export default function GestaoPresencas() {
     await buscar();
   }
 
-  // agrupa por data para exibição
-  const porData = presencas.reduce<Record<string, Presenca[]>>((acc, p) => {
-    (acc[p.data] ??= []).push(p);
-    return acc;
-  }, {});
-  const datas = Object.keys(porData).sort((a, b) => b.localeCompare(a));
+  const temFiltroExtra = filtroObra || filtroStatus;
 
   return (
     <div>
@@ -110,50 +121,65 @@ export default function GestaoPresencas() {
         <ShareButton buildTexto={buildTexto} assunto={`Presenças ${filtroInicio} a ${filtroFim}`} adminEmail={adminEmail} />
       </div>
 
-      {/* Filtros */}
       <div className="card card-body" style={{ marginBottom: 16 }}>
         <div className="form-grid" style={{ alignItems: 'flex-end' }}>
           <div>
             <label className="form-label">De</label>
-            <input className="form-input" type="date" value={filtroInicio}
-              onChange={e => setFiltroInicio(e.target.value)} />
+            <input className="form-input" type="date" value={filtroInicio} onChange={e => setFiltroInicio(e.target.value)} />
           </div>
           <div>
             <label className="form-label">Até</label>
-            <input className="form-input" type="date" value={filtroFim}
-              onChange={e => setFiltroFim(e.target.value)} />
+            <input className="form-input" type="date" value={filtroFim} onChange={e => setFiltroFim(e.target.value)} />
           </div>
-          <div className="form-full" style={{ minWidth: 180 }}>
+          <div>
             <label className="form-label">Funcionário</label>
-            <select className="form-input" value={filtroFuncId}
-              onChange={e => setFiltroFuncId(e.target.value)}>
+            <select className="form-input" value={filtroFuncId} onChange={e => setFiltroFuncId(e.target.value)}>
               <option value="">Todos</option>
               {funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
             </select>
           </div>
           <div>
-            <button onClick={buscar} disabled={carregando} className="btn btn-primary" style={{ width: '100%' }}>
+            <label className="form-label">Obra</label>
+            <select className="form-input" value={filtroObra} onChange={e => setFiltroObra(e.target.value)}>
+              <option value="">Todas</option>
+              {obras.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">Status</label>
+            <select className="form-input" value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="presente">Presente</option>
+              <option value="meio-periodo">Meio período</option>
+              <option value="ausente">Ausente</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+            <button onClick={buscar} disabled={carregando} className="btn btn-primary" style={{ flex: 1 }}>
               <Search size={15} /> {carregando ? 'Buscando...' : 'Buscar'}
             </button>
+            {temFiltroExtra && (
+              <button className="btn btn-secondary" onClick={() => { setFiltroObra(''); setFiltroStatus(''); }} title="Limpar filtros extras">
+                Limpar
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Resumo */}
-      {presencas.length > 0 && (
+      {presencasFiltradas.length > 0 && (
         <div style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>
-          {presencas.length} registro{presencas.length !== 1 ? 's' : ''} encontrado{presencas.length !== 1 ? 's' : ''}
+          {presencasFiltradas.length} registro{presencasFiltradas.length !== 1 ? 's' : ''} em {datas.length} dia{datas.length !== 1 ? 's' : ''}
         </div>
       )}
 
-      {/* Tabela agrupada por data */}
       {datas.length === 0 && !carregando && (
         <div className="card card-body" style={{ textAlign: 'center', color: '#94a3b8' }}>
           Nenhuma presença encontrada para o período selecionado.
         </div>
       )}
 
-      {datas.map(data => (
+      {pg.paged.map(data => (
         <div key={data} className="card" style={{ marginBottom: 16 }}>
           <div style={{ padding: '10px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px 8px 0 0' }}>
             <strong style={{ fontSize: 14, color: '#1e293b' }}>
@@ -167,14 +193,8 @@ export default function GestaoPresencas() {
             <table>
               <thead>
                 <tr>
-                  <th>Funcionário</th>
-                  <th>Obra</th>
-                  <th>Entrada</th>
-                  <th>Saída</th>
-                  <th>Dist.</th>
-                  <th>Status</th>
-                  <th>Fotos</th>
-                  <th>Ações</th>
+                  <th>Funcionário</th><th>Obra</th><th>Entrada</th><th>Saída</th>
+                  <th>Dist.</th><th>Status</th><th>Fotos</th><th>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -198,14 +218,10 @@ export default function GestaoPresencas() {
                           {obras.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
                         </select>
                       </td>
-                      <td>
-                        <input className="form-input" style={{ width: 80, fontSize: 13 }} value={editForm.horaEntrada ?? ''}
-                          onChange={e => setEditForm(f => ({ ...f, horaEntrada: e.target.value }))} />
-                      </td>
-                      <td>
-                        <input className="form-input" style={{ width: 80, fontSize: 13 }} value={editForm.horaSaida ?? ''}
-                          onChange={e => setEditForm(f => ({ ...f, horaSaida: e.target.value || undefined }))} />
-                      </td>
+                      <td><input className="form-input" style={{ width: 80, fontSize: 13 }} value={editForm.horaEntrada ?? ''}
+                        onChange={e => setEditForm(f => ({ ...f, horaEntrada: e.target.value }))} /></td>
+                      <td><input className="form-input" style={{ width: 80, fontSize: 13 }} value={editForm.horaSaida ?? ''}
+                        onChange={e => setEditForm(f => ({ ...f, horaSaida: e.target.value || undefined }))} /></td>
                       <td style={{ color: '#94a3b8' }}>{p.distanciaObra}m</td>
                       <td>
                         <select className="form-input" style={{ fontSize: 13 }} value={editForm.status}
@@ -270,7 +286,12 @@ export default function GestaoPresencas() {
         </div>
       ))}
 
-      {/* Modal confirmar exclusão */}
+      {datas.length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <Pagination page={pg.page} totalPages={pg.totalPages} pageSize={pg.pageSize} total={pg.total} start={pg.start} end={pg.end} onPage={pg.setPage} onPageSize={pg.setPageSize} />
+        </div>
+      )}
+
       {confirmExcluir && (() => {
         const f = funcionarios.find(x => x.id === confirmExcluir.funcionarioId);
         return (
@@ -280,9 +301,7 @@ export default function GestaoPresencas() {
                 <div style={{ background: '#fef2f2', borderRadius: 8, padding: 10 }}><Trash2 size={22} color="#dc2626" /></div>
                 <span className="modal-title">Excluir Presença</span>
               </div>
-              <p style={{ fontSize: 14, color: '#374151', marginBottom: 4 }}>
-                <strong>{f?.nome}</strong>
-              </p>
+              <p style={{ fontSize: 14, color: '#374151', marginBottom: 4 }}><strong>{f?.nome}</strong></p>
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
                 {new Date(confirmExcluir.data + 'T12:00:00').toLocaleDateString('pt-BR')} — Entrada: {confirmExcluir.horaEntrada}
               </p>

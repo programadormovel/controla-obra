@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/storage';
 import { api } from '../services/api';
 import type { Funcionario, Obra, UsuarioAdmin, Cargo } from '../types';
-import { Edit2, X, Save, UserPlus, Trash2, UserX, Share2, Plus } from 'lucide-react';
+import { Edit2, X, Save, UserPlus, Trash2, UserX, Share2, Plus, Search } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import ShareButton from '../components/ShareButton';
 import { useAdminEmail } from '../hooks/useAdminEmail';
+import Pagination from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 
 async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -38,6 +40,25 @@ export default function Funcionarios() {
   const [erro, setErro] = useState<string | null>(null);
   const [confirmExcluir, setConfirmExcluir] = useState<Funcionario | null>(null);
   const adminEmail = useAdminEmail();
+  const [busca, setBusca] = useState('');
+  const [filtroObra, setFiltroObra] = useState('');
+  const [filtroCargo, setFiltroCargo] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState<'todos' | 'ativo' | 'inativo'>('todos');
+
+  const filtrada = useMemo(() => {
+    const b = busca.toLowerCase();
+    return lista.filter(f => {
+      const login = usuarios.find(u => u.funcionarioId === f.id)?.login ?? '';
+      return (
+        (!b || f.nome.toLowerCase().includes(b) || login.toLowerCase().includes(b)) &&
+        (!filtroObra || f.obraId === filtroObra) &&
+        (!filtroCargo || f.funcao === filtroCargo) &&
+        (filtroStatus === 'todos' || (filtroStatus === 'ativo' ? f.ativo : !f.ativo))
+      );
+    });
+  }, [lista, busca, filtroObra, filtroCargo, filtroStatus, usuarios]);
+
+  const pg = usePagination(filtrada);
 
   function buildTexto() {
     const linhas = lista.map(f => {
@@ -139,6 +160,29 @@ export default function Funcionarios() {
         </div>
       </div>
 
+      <div className="card card-body" style={{ marginBottom: 16, padding: '12px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <Search size={15} color="#94a3b8" />
+          <input className="form-input" style={{ maxWidth: 220 }} placeholder="Nome ou login..." value={busca} onChange={e => setBusca(e.target.value)} />
+          <select className="form-input" style={{ width: 'auto' }} value={filtroObra} onChange={e => setFiltroObra(e.target.value)}>
+            <option value="">Todas as obras</option>
+            {obras.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+          </select>
+          <select className="form-input" style={{ width: 'auto' }} value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}>
+            <option value="">Todos os cargos</option>
+            {cargos.map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
+          </select>
+          <select className="form-input" style={{ width: 'auto' }} value={filtroStatus} onChange={e => setFiltroStatus(e.target.value as typeof filtroStatus)}>
+            <option value="todos">Todos</option>
+            <option value="ativo">Ativos</option>
+            <option value="inativo">Inativos</option>
+          </select>
+          {(busca || filtroObra || filtroCargo || filtroStatus !== 'todos') && (
+            <button className="btn btn-secondary btn-sm" onClick={() => { setBusca(''); setFiltroObra(''); setFiltroCargo(''); setFiltroStatus('todos'); }}>Limpar</button>
+          )}
+        </div>
+      </div>
+
       <div className="card">
         <div className="table-wrap">
           <table>
@@ -146,8 +190,8 @@ export default function Funcionarios() {
               <tr>{['Nome', 'Função', 'Login', 'Obra', 'Diária', 'Transporte', 'Aliment.', 'Total/Dia', 'Status', 'Ações'].map(h => <th key={h}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {lista.length === 0 && <tr><td colSpan={10} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Nenhum funcionário cadastrado</td></tr>}
-              {lista.map(f => {
+              {pg.paged.length === 0 && <tr><td colSpan={10} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>{lista.length === 0 ? 'Nenhum funcionário cadastrado' : 'Nenhum resultado para os filtros aplicados'}</td></tr>}
+              {pg.paged.map(f => {
                 const temPresenca = presencaIds.has(f.id);
                 const obraNome = obras.find(o => o.id === f.obraId)?.nome;
                 const login = usuarios.find(u => u.funcionarioId === f.id)?.login ?? '—';
@@ -185,6 +229,7 @@ export default function Funcionarios() {
             </tbody>
           </table>
         </div>
+        <Pagination page={pg.page} totalPages={pg.totalPages} pageSize={pg.pageSize} total={pg.total} start={pg.start} end={pg.end} onPage={pg.setPage} onPageSize={pg.setPageSize} />
       </div>
 
       {modal && (

@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db, calcCustoDiario } from '../services/storage';
 import type { Presenca, Funcionario, Obra } from '../types';
 import { Search } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import ShareButton from '../components/ShareButton';
 import { useAdminEmail } from '../hooks/useAdminEmail';
+import Pagination from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 
 export default function Relatorio() {
   const hoje = new Date().toISOString().split('T')[0];
@@ -17,6 +19,7 @@ export default function Relatorio() {
   const [carregando, setCarregando]   = useState(false);
   const { run } = useApi();
   const adminEmail = useAdminEmail();
+  const [buscaNome, setBuscaNome] = useState('');
 
   useEffect(() => {
     run(() => Promise.all([db.getFuncionariosAsync(), db.getObrasAsync()])
@@ -53,6 +56,13 @@ export default function Relatorio() {
     transporte: acc.transporte + r.transporte, alimentacao: acc.alimentacao + r.alimentacao,
     total: acc.total + r.total,
   }), { dias: 0, diarias: 0, transporte: 0, alimentacao: 0, total: 0 });
+
+  const porFuncionarioFiltrado = useMemo(() => {
+    const b = buscaNome.toLowerCase();
+    return b ? porFuncionario.filter(r => r.nome.toLowerCase().includes(b) || r.funcao.toLowerCase().includes(b)) : porFuncionario;
+  }, [porFuncionario, buscaNome]);
+
+  const pg = usePagination(porFuncionarioFiltrado);
 
   const resumo = [
     { label: 'Total Diárias',     value: `R$ ${totais.diarias.toFixed(2)}`,     color: '#1e3a5f' },
@@ -118,16 +128,21 @@ export default function Relatorio() {
       </div>
 
       <div className="card">
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Search size={15} color="#94a3b8" />
+          <input className="form-input" style={{ maxWidth: 260 }} placeholder="Filtrar por nome ou função..." value={buscaNome} onChange={e => setBuscaNome(e.target.value)} />
+          {buscaNome && <button className="btn btn-secondary btn-sm" onClick={() => setBuscaNome('')}>Limpar</button>}
+        </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>{['Funcionário', 'Função', 'Dias', 'Diárias', 'Transporte', 'Alimentação', 'Total'].map(h => <th key={h}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {porFuncionario.length === 0 && (
-                <tr><td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Nenhum registro no período</td></tr>
+              {pg.paged.length === 0 && (
+                <tr><td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>{porFuncionario.length === 0 ? 'Nenhum registro no período' : 'Nenhum resultado para o filtro'}</td></tr>
               )}
-              {porFuncionario.map(r => (
+              {pg.paged.map(r => (
                 <tr key={r.nome}>
                   <td style={{ fontWeight: 500 }}>{r.nome}</td>
                   <td style={{ color: '#64748b' }}>{r.funcao}</td>
@@ -140,7 +155,7 @@ export default function Relatorio() {
               ))}
               {porFuncionario.length > 0 && (
                 <tr style={{ background: '#f8fafc', fontWeight: 700 }}>
-                  <td colSpan={2}>TOTAL</td>
+                  <td colSpan={2}>TOTAL GERAL</td>
                   <td>{totais.dias}</td>
                   <td>R$ {totais.diarias.toFixed(2)}</td>
                   <td>R$ {totais.transporte.toFixed(2)}</td>
@@ -151,6 +166,7 @@ export default function Relatorio() {
             </tbody>
           </table>
         </div>
+        <Pagination page={pg.page} totalPages={pg.totalPages} pageSize={pg.pageSize} total={pg.total} start={pg.start} end={pg.end} onPage={pg.setPage} onPageSize={pg.setPageSize} />
       </div>
     </div>
   );
