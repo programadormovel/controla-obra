@@ -39,6 +39,10 @@ const mapUsuario    = r => ({ Id: r.id, Login: r.login, Email: r.email, Ativo: r
 const mapPresenca   = r => ({ Id: r.id, Data: r.data, HoraEntrada: r.horaentrada, HoraSaida: r.horasaida, Status: r.status, DistanciaObra: r.distanciaobra, Lat: r.lat, Lng: r.lng, FotoEntrada: r.fotoentrada, FotoSaida: r.fotosaida, FuncionarioId: r.funcionarioid, FuncionarioNome: r.funcionarionome, Funcao: r.funcao, Diaria: r.diaria, Transporte: r.transporte, Alimentacao: r.alimentacao, DiariaPaga: r.diariapaga, CustoTotal: r.custototal, ObraId: r.obraid, ObraNome: r.obranome, ObraEndereco: r.obraendereco });
 
 // ── Login ────────────────────────────────────────────────────────────────────
+router.get('/ping', (_req, res) => {
+  res.json({ ok: true, hasDb: !!process.env.DATABASE_URL, dbPrefix: (process.env.DATABASE_URL || '').slice(0, 30) });
+});
+
 router.post('/login', wrap(async (req, res) => {
   const { login, senhaHash } = req.body;
   const r = await q(`
