@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { db, calcCustoDiario } from '../services/storage';
 import type { Presenca, Funcionario, Obra } from '../types';
 import { Users, DollarSign, MapPin, HardHat } from 'lucide-react';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const hoje = new Date().toISOString().split('T')[0];
   const [presencas, setPresencas]     = useState<Presenca[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
@@ -23,10 +25,10 @@ export default function Dashboard() {
   }, 0);
 
   const cards = [
-    { label: 'Presentes Hoje',      value: presencas.length,                        icon: <Users size={20} />,     color: '#1e3a5f' },
-    { label: 'Custo Total Hoje',    value: `R$ ${custoHoje.toFixed(2)}`,             icon: <DollarSign size={20} />, color: '#059669' },
-    { label: 'Obras Ativas',        value: obras.filter(o => o.ativa).length,        icon: <MapPin size={20} />,    color: '#d97706' },
-    { label: 'Funcionários Ativos', value: funcionarios.filter(f => f.ativo).length, icon: <HardHat size={20} />,   color: '#7c3aed' },
+    { label: 'Presentes Hoje',      value: presencas.length,                        icon: <Users size={20} />,     color: '#1e3a5f', to: '/presenca' },
+    { label: 'Custo Total Hoje',    value: `R$ ${custoHoje.toFixed(2)}`,             icon: <DollarSign size={20} />, color: '#059669', to: '/relatorio' },
+    { label: 'Obras Ativas',        value: obras.filter(o => o.ativa).length,        icon: <MapPin size={20} />,    color: '#d97706', to: '/obras' },
+    { label: 'Funcionários Ativos', value: funcionarios.filter(f => f.ativo).length, icon: <HardHat size={20} />,   color: '#7c3aed', to: '/funcionarios' },
   ];
 
   const statusColor: Record<string, string> = { presente: '#059669', ausente: '#dc2626', 'meio-periodo': '#d97706' };
@@ -42,7 +44,11 @@ export default function Dashboard() {
 
       <div className="dash-grid" style={{ marginBottom: 24 }}>
         {cards.map(c => (
-          <div key={c.label} className="dash-card" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div key={c.label} className="dash-card" onClick={() => navigate(c.to)}
+            style={{ display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', transition: 'transform .15s, box-shadow .15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 16px #0001'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}
+          >
             <div style={{ background: c.color + '18', borderRadius: 8, padding: 10, color: c.color, flexShrink: 0 }}>{c.icon}</div>
             <div>
               <div className="dash-card-value">{c.value}</div>
