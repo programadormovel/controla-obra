@@ -18,6 +18,10 @@ export default function Obras() {
   const [form, setForm] = useState<Omit<Obra, 'id'>>(vazio);
   const [salvando, setSalvando] = useState(false);
   const [buscandoGeo, setBuscandoGeo] = useState(false);
+  const [geocodificando, setGeocodificando] = useState(false);
+  const [geocResultados, setGeocResultados] = useState<{ label: string; lat: number; lng: number }[]>([]);
+  const [cep, setCep] = useState('');
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [confirmExcluir, setConfirmExcluir] = useState<Obra | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const { run } = useApi();
@@ -62,12 +66,57 @@ export default function Obras() {
 
   useEffect(() => { carregar(); }, []);
 
-  function abrirNovo() { setForm(vazio); setEditando(null); setErro(null); setModal(true); }
+  function abrirNovo() { setForm(vazio); setEditando(null); setErro(null); setCep(''); setGeocResultados([]); setModal(true); }
   function abrirEdicao(o: Obra) {
     setForm({ nome: o.nome, endereco: o.endereco, lat: o.lat, lng: o.lng, ativa: o.ativa });
-    setEditando(o); setErro(null); setModal(true);
+    setEditando(o); setErro(null); setCep(''); setGeocResultados([]); setModal(true);
   }
-  function fechar() { setModal(false); setEditando(null); setForm(vazio); setErro(null); }
+  function fechar() { setModal(false); setEditando(null); setForm(vazio); setErro(null); setGeocResultados([]); setCep(''); }
+
+  async function buscarCep(valor: string) {
+    const digits = valor.replace(/\D/g, '');
+    if (digits.length !== 8) return;
+    setBuscandoCep(true); setErro(null); setGeocResultados([]);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await res.json() as { erro?: boolean; logradouro: string; bairro: string; localidade: string; uf: string };
+      if (data.erro) return setErro('CEP não encontrado.');
+      const endereco = [data.logradouro, data.bairro, data.localidade, data.uf].filter(Boolean).join(', ');
+      setForm(f => ({ ...f, endereco }));
+      // geocodifica automaticamente após preencher o endereço
+      await geocodificarEndereco(endereco);
+    } catch {
+      setErro('Erro ao buscar CEP. Verifique sua conexão.');
+    } finally { setBuscandoCep(false); }
+  }
+
+  async function geocodificarEndereco(endereco: string) {
+    setGeocodificando(true); setGeocResultados([]);
+    try {
+      const q = encodeURIComponent(endereco + ', Brasil');
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=5`, {
+        headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'controla-obra-app' },
+      });
+      const data = await res.json() as { display_name: string; lat: string; lon: string }[];
+      if (!data.length) return;
+      if (data.length === 1) {
+        setForm(f => ({ ...f, lat: +parseFloat(data[0].lat).toFixed(7), lng: +parseFloat(data[0].lon).toFixed(7) }));
+      } else {
+        setGeocResultados(data.map(d => ({ label: d.display_name, lat: +parseFloat(d.lat).toFixed(7), lng: +parseFloat(d.lon).toFixed(7) })));
+      }
+    } finally { setGeocodificando(false); }
+  }
+
+  async function geocodificar() {
+    if (!form.endereco.trim()) return setErro('Informe o endereço antes de buscar as coordenadas.');
+    setErro(null);
+    await geocodificarEndereco(form.endereco);
+  }
+
+  function selecionarGeoc(r: { label: string; lat: number; lng: number }) {
+    setForm(f => ({ ...f, lat: r.lat, lng: r.lng }));
+    setGeocResultados([]);
+  }
 
   function usarGeoAtual() {
     if (!navigator.geolocation) return;
@@ -183,9 +232,86 @@ export default function Obras() {
                 <label className="form-label">Nome da obra *</label>
                 <input className="form-input" value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Residência Jardins" />
               </div>
+
+              {/* CEP */}
+              <div>
+                <label className="form-label">CEP</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    className="form-input"
+                    value={cep}
+                    maxLength={9}
+                    placeholder="00000-000"
+                    onChange={e => {
+                      const raw = e.target.value.replace(/\D/g, '').slice(0, 8);
+                      const fmt = raw.length > 5 ? raw.slice(0, 5) + '-' + raw.slice(5) : raw;
+                      setCep(fmt);
+                      if (raw.length === 8) buscarCep(raw);
+                    }}
+                  />
+                  {buscandoCep && (
+                    <span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center', whiteSpace: 'nowrap' }}>
+                      Buscando...
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Endereço */}
               <div className="form-full">
                 <label className="form-label">Endereço *</label>
-                <input className="form-input" value={form.endereco} onChange={e => setForm(f => ({ ...f, endereco: e.target.value }))} placeholder="Ex: Rua das Flores, 123" />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    className="form-input"
+                    style={{ flex: 1 }}
+                    value={form.endereco}
+                    onChange={e => { setForm(f => ({ ...f, endereco: e.target.value })); setGeocResultados([]); }}
+                    placeholder="Preenchido pelo CEP ou digite manualmente"
+                    onKeyDown={e => e.key === 'Enter' && geocodificar()}
+                  />
+                  <button
+                    type="button"
+                    onClick={geocodificar}
+                    disabled={geocodificando || buscandoCep || !form.endereco.trim()}
+                    className="btn btn-secondary btn-sm"
+                    title="Buscar latitude e longitude pelo endereço"
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    <MapPin size={14} /> {geocodificando ? 'Buscando...' : 'Buscar coords'}
+                  </button>
+                </div>
+
+                {/* Lista de resultados de geocodificação */}
+                {geocResultados.length > 0 && (
+                  <div style={{
+                    marginTop: 6, border: '1px solid #e2e8f0', borderRadius: 8,
+                    background: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,.08)', overflow: 'hidden',
+                  }}>
+                    <div style={{ padding: '6px 12px', fontSize: 11, color: '#64748b', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                      Vários resultados encontrados — selecione o correto:
+                    </div>
+                    {geocResultados.map((r, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => selecionarGeoc(r)}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'left',
+                          padding: '8px 12px', background: 'none', border: 'none',
+                          borderBottom: i < geocResultados.length - 1 ? '1px solid #f1f5f9' : 'none',
+                          cursor: 'pointer', fontSize: 13, color: '#374151', lineHeight: 1.5,
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f0f9ff')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                      >
+                        <span style={{ color: '#1e3a5f', fontWeight: 600, fontFamily: 'monospace', fontSize: 12 }}>
+                          {r.lat.toFixed(6)}, {r.lng.toFixed(6)}
+                        </span>
+                        <span style={{ color: '#64748b', marginLeft: 8, fontSize: 12 }}>{r.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="form-label">Latitude</label>
@@ -197,10 +323,13 @@ export default function Obras() {
               </div>
               <div className="form-full">
                 <button onClick={usarGeoAtual} disabled={buscandoGeo} className="btn btn-green btn-sm">
-                  <MapPin size={14} /> {buscandoGeo ? 'Obtendo...' : 'Usar minha localização'}
+                  <MapPin size={14} /> {buscandoGeo ? 'Obtendo...' : 'Usar minha localização atual'}
                 </button>
                 {form.lat !== 0 && form.lng !== 0 && (
-                  <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>GPS: {form.lat.toFixed(5)}, {form.lng.toFixed(5)}</div>
+                  <div style={{ marginTop: 8, padding: '6px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, fontSize: 12, color: '#15803d', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <MapPin size={12} /> Coordenadas: {form.lat.toFixed(6)}, {form.lng.toFixed(6)}
+                    <button type="button" onClick={() => setForm(f => ({ ...f, lat: 0, lng: 0 }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 0, marginLeft: 4, fontSize: 13, lineHeight: 1 }} title="Limpar coordenadas">×</button>
+                  </div>
                 )}
               </div>
               <div className="form-full form-check">
