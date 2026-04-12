@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { db } from '../services/storage';
 import type { Presenca, Funcionario, Obra } from '../types';
 import { Edit2, Trash2, Save, X, AlertTriangle, Search } from 'lucide-react';
+import { useApi } from '../hooks/useApi';
 
 const hoje = new Date().toISOString().split('T')[0];
 const umMesAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -22,12 +23,13 @@ export default function GestaoPresencas() {
   const [confirmExcluir, setConfirmExcluir] = useState<Presenca | null>(null);
   const [salvando, setSalvando]       = useState(false);
   const [erro, setErro]               = useState<string | null>(null);
+  const { run } = useApi();
 
   useEffect(() => {
-    Promise.all([db.getFuncionariosAsync(), db.getObrasAsync()]).then(([f, o]) => {
+    run(() => Promise.all([db.getFuncionariosAsync(), db.getObrasAsync()]).then(([f, o]) => {
       setFuncionarios(f);
       setObras(o);
-    });
+    }));
     buscar();
   }, []);
 

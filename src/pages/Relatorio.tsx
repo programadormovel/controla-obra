@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { db, calcCustoDiario } from '../services/storage';
 import type { Presenca, Funcionario, Obra } from '../types';
 import { Search } from 'lucide-react';
+import { useApi } from '../hooks/useApi';
 
 export default function Relatorio() {
   const hoje = new Date().toISOString().split('T')[0];
@@ -12,10 +13,11 @@ export default function Relatorio() {
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [obras, setObras]             = useState<Obra[]>([]);
   const [carregando, setCarregando]   = useState(false);
+  const { run } = useApi();
 
   useEffect(() => {
-    Promise.all([db.getFuncionariosAsync(), db.getObrasAsync()])
-      .then(([f, o]) => { setFuncionarios(f); setObras(o); });
+    run(() => Promise.all([db.getFuncionariosAsync(), db.getObrasAsync()])
+      .then(([f, o]) => { setFuncionarios(f); setObras(o); }));
     buscar();
   }, []);
 

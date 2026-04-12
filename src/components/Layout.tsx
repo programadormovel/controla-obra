@@ -3,8 +3,11 @@ import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Users, ClipboardCheck, BarChart2, HardHat, LogOut, Building2, UserCog, Menu, X, CalendarDays, Briefcase } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+import { useLoading } from '../context/LoadingContext';
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { usuario, logout } = useAuth();
+  const { loading } = useLoading();
   const isAdmin = usuario?.perfil === 'admin';
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -75,7 +78,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <main className="app-main">{children}</main>
 
+      {loading && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.35)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '28px 36px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+            <div style={{ width: 36, height: 36, border: '4px solid #e2e8f0', borderTop: '4px solid #1e3a5f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <span style={{ fontSize: 14, color: '#475569', fontWeight: 500 }}>Aguarde...</span>
+          </div>
+        </div>
+      )}
+
       <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
         @media (min-width: 768px) {
           .btn-menu { display: none !important; }
           .app-nav  { position: static !important; transform: none !important; width: auto !important;

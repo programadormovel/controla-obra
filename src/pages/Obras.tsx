@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { db } from '../services/storage';
 import type { Obra } from '../types';
 import { Plus, Edit2, X, Save, MapPin, Trash2, Building2 } from 'lucide-react';
+import { useApi } from '../hooks/useApi';
 
 const vazio: Omit<Obra, 'id'> = { nome: '', endereco: '', lat: 0, lng: 0, ativa: true };
 
@@ -15,11 +16,14 @@ export default function Obras() {
   const [buscandoGeo, setBuscandoGeo] = useState(false);
   const [confirmExcluir, setConfirmExcluir] = useState<Obra | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const { run } = useApi();
 
   async function carregar() {
-    const [obras, presencas] = await Promise.all([db.getObrasAsync(), db.getPresencasAsync()]);
-    setLista(obras);
-    setPresencaObraIds(new Set(presencas.map(p => p.obraId)));
+    await run(async () => {
+      const [obras, presencas] = await Promise.all([db.getObrasAsync(), db.getPresencasAsync()]);
+      setLista(obras);
+      setPresencaObraIds(new Set(presencas.map(p => p.obraId)));
+    });
   }
 
   useEffect(() => { carregar(); }, []);

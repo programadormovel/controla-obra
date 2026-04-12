@@ -5,6 +5,8 @@ import { api } from '../services/api';
 import type { Funcionario, Obra, UsuarioAdmin, Cargo } from '../types';
 import { Edit2, X, Save, UserPlus, Trash2, UserX, Share2, Plus } from 'lucide-react';
 
+import { useApi } from '../hooks/useApi';
+
 async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -27,6 +29,7 @@ export default function Funcionarios() {
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [presencaIds, setPresencaIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
+  const { run } = useApi();
   const [modal, setModal] = useState(false);
   const [editando, setEditando] = useState<Funcionario | null>(null);
   const [form, setForm] = useState<FormFunc>(vazio);
@@ -35,6 +38,7 @@ export default function Funcionarios() {
   const [confirmExcluir, setConfirmExcluir] = useState<Funcionario | null>(null);
 
   async function carregar() {
+    await run(async () => {
     const [funcs, presencas, obrasLista, usuariosLista, cargosLista] = await Promise.all([
       db.getFuncionariosAsync(),
       db.getPresencasAsync(),
@@ -46,7 +50,8 @@ export default function Funcionarios() {
     setPresencaIds(new Set(presencas.map(p => p.funcionarioId)));
     setObras(obrasLista);
     setUsuarios(usuariosLista);
-    setCargos(cargosLista);
+      setCargos(cargosLista);
+    });
   }
 
   useEffect(() => { carregar(); }, []);
