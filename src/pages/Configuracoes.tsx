@@ -15,7 +15,6 @@ export default function Configuracoes() {
   }
 
   const multiplicador = 1 + adicional / 100;
-  const valorHoraEx = (100 / 8) * multiplicador;
 
   return (
     <div>

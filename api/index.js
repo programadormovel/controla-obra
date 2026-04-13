@@ -63,7 +63,7 @@ async function withJornadaSchemaRetry(fn) {
 }
 
 const mapFuncionario = r => ({ Id: r.id, Nome: r.nome, Funcao: r.funcao, Diaria: r.diaria, Transporte: r.transporte, Alimentacao: r.alimentacao, Telefone: r.telefone, Ativo: r.ativo, ObraId: r.obraid });
-const mapObra       = r => ({ Id: r.id, Nome: r.nome, Endereco: r.endereco, Lat: r.lat, Lng: r.lng, Ativa: r.ativa });
+const mapObra       = r => ({ Id: r.id, Nome: r.nome, Endereco: r.endereco, Lat: r.lat, Lng: r.lng, Ativa: r.ativa, TurnoNoturno: r.turnonoturno ?? false });
 const mapUsuario    = r => ({ Id: r.id, Login: r.login, Email: r.email, Ativo: r.ativo, FuncionarioId: r.funcionarioid, Perfil: r.perfil, FuncionarioNome: r.funcionarionome });
 const mapPresenca   = r => ({
   Id: r.id, Data: r.data, HoraEntrada: r.horaentrada, HoraSaida: r.horasaida, Status: r.status,
@@ -172,9 +172,9 @@ module.exports = async (req, res) => {
 
     if (method === 'POST' && url === '/obras') {
       const o = await readBody(req);
-      await q(`INSERT INTO obra (id,nome,endereco,lat,lng,ativa) VALUES ($1,$2,$3,$4,$5,$6)
-        ON CONFLICT (id) DO UPDATE SET nome=$2,endereco=$3,lat=$4,lng=$5,ativa=$6`,
-        [o.id, o.nome, o.endereco, o.lat, o.lng, o.ativa]);
+      await q(`INSERT INTO obra (id,nome,endereco,lat,lng,ativa,turnonoturno) VALUES ($1,$2,$3,$4,$5,$6,$7)
+        ON CONFLICT (id) DO UPDATE SET nome=$2,endereco=$3,lat=$4,lng=$5,ativa=$6,turnonoturno=$7`,
+        [o.id, o.nome, o.endereco, o.lat, o.lng, o.ativa, o.turnoNoturno ?? false]);
       return send(res, 200, { ok: true });
     }
 
@@ -259,7 +259,9 @@ module.exports = async (req, res) => {
     // PATCH /presencas/:id/autorizar-hora-extra
     if (method === 'POST' && url.match(/^\/presencas\/[^/]+\/autorizar-hora-extra$/)) {
       const id = url.split('/')[2];
-      await withJornadaSchemaRetry(() => q('UPDATE presenca SET horaextraautorizada=TRUE WHERE id=$1', [id]));
+      const body = await readBody(req);
+      const autorizadoPor = body?.autorizadoPor || null;
+      await withJornadaSchemaRetry(() => q('UPDATE presenca SET horaextraautorizada=TRUE, autorizadopor=$2 WHERE id=$1', [id, autorizadoPor]));
       return send(res, 200, { ok: true });
     }
 

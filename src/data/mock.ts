@@ -9,9 +9,9 @@ export const mockFuncionarios: Funcionario[] = [
 ];
 
 export const mockObras: Obra[] = [
-  { id: 'o1', nome: 'Residência Jardins', endereco: 'Rua das Flores, 123 - Jardins', lat: -23.5614, lng: -46.6558, ativa: true },
-  { id: 'o2', nome: 'Comercial Centro', endereco: 'Av. Paulista, 456 - Centro', lat: -23.5629, lng: -46.6544, ativa: true },
-  { id: 'o3', nome: 'Reforma Moema', endereco: 'Rua Iraí, 789 - Moema', lat: -23.6012, lng: -46.6658, ativa: true },
+  { id: 'o1', nome: 'Residência Jardins', endereco: 'Rua das Flores, 123 - Jardins', lat: -23.5614, lng: -46.6558, ativa: true, turnoNoturno: false },
+  { id: 'o2', nome: 'Comercial Centro', endereco: 'Av. Paulista, 456 - Centro', lat: -23.5629, lng: -46.6544, ativa: true, turnoNoturno: false },
+  { id: 'o3', nome: 'Reforma Moema', endereco: 'Rua Iraí, 789 - Moema', lat: -23.6012, lng: -46.6658, ativa: true, turnoNoturno: false },
 ];
 
 const hoje = new Date().toISOString().split('T')[0];

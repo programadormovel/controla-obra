@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS Obra (
     Lat       DECIMAL(10,7)  NOT NULL,
     Lng       DECIMAL(10,7)  NOT NULL,
     Ativa     BOOLEAN        NOT NULL DEFAULT TRUE,
+    TurnoNoturno BOOLEAN      NOT NULL DEFAULT FALSE,
     CriadoEm TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     CONSTRAINT PK_Obra PRIMARY KEY (Id)
 );
@@ -49,6 +50,7 @@ CREATE TABLE IF NOT EXISTS Presenca (
                      CHECK (TipoRegistro IN ('entrada','saida-almoco','retorno-almoco','saida-jantar','retorno-jantar','saida')),
     MinutosTrabalhados  INT       NULL,
     HoraExtraAutorizada BOOLEAN   NOT NULL DEFAULT FALSE,
+    AutorizadoPor       VARCHAR(50) NULL,
     TurnoNoturno        BOOLEAN   NOT NULL DEFAULT FALSE,
     SaidaAlmoco         TIME      NULL,
     RetornoAlmoco       TIME      NULL,
