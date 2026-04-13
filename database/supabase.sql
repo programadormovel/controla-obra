@@ -45,6 +45,15 @@ CREATE TABLE IF NOT EXISTS Presenca (
     Status         VARCHAR(15)    NOT NULL CHECK (Status IN ('presente','ausente','meio-periodo')),
     FotoEntrada    TEXT           NULL,
     FotoSaida      TEXT           NULL,
+    TipoRegistro   VARCHAR(20)    NOT NULL DEFAULT 'entrada'
+                     CHECK (TipoRegistro IN ('entrada','saida-almoco','retorno-almoco','saida-jantar','retorno-jantar','saida')),
+    MinutosTrabalhados  INT       NULL,
+    HoraExtraAutorizada BOOLEAN   NOT NULL DEFAULT FALSE,
+    TurnoNoturno        BOOLEAN   NOT NULL DEFAULT FALSE,
+    SaidaAlmoco         TIME      NULL,
+    RetornoAlmoco       TIME      NULL,
+    SaidaJantar         TIME      NULL,
+    RetornoJantar       TIME      NULL,
     CriadoEm      TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     CONSTRAINT PK_Presenca      PRIMARY KEY (Id),
     CONSTRAINT FK_Presenca_Func FOREIGN KEY (FuncionarioId) REFERENCES Funcionario(Id),
@@ -102,7 +111,10 @@ CREATE TRIGGER trg_Funcionario_AlteradoEm
 
 CREATE OR REPLACE VIEW vw_PresencaCompleta AS
 SELECT
-    p.Id, p.Data, p.HoraEntrada, p.HoraSaida, p.Status, p.DistanciaObra, p.Lat, p.Lng,
+    p.Id, p.Data, p.HoraEntrada, p.HoraSaida, p.Status,
+    p.TipoRegistro, p.MinutosTrabalhados, p.HoraExtraAutorizada, p.TurnoNoturno,
+    p.SaidaAlmoco, p.RetornoAlmoco, p.SaidaJantar, p.RetornoJantar,
+    p.DistanciaObra, p.Lat, p.Lng,
     p.FotoEntrada, p.FotoSaida,
     f.Id   AS FuncionarioId, f.Nome AS FuncionarioNome, f.Funcao,
     f.Diaria, f.Transporte, f.Alimentacao,

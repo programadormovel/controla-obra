@@ -53,6 +53,7 @@ export const api = {
   deleteObra: (id: string) => del('/obras/' + id),
   savePresenca: (p: Presenca) => post('/presencas', p),
   deletePresenca: (id: string) => del('/presencas/' + id),
+  autorizarHoraExtra: (id: string, autorizadoPor: string) => post<{ ok: boolean }>('/presencas/' + id + '/autorizar-hora-extra', { autorizadoPor }),
   uploadFoto: async (presencaId: string, tipo: 'entrada' | 'saida', blob: Blob): Promise<string> => {
     const fd = new FormData();
     fd.append('foto', blob, `${tipo}.jpg`);
@@ -77,17 +78,31 @@ function mapFuncionario(r: Record<string, unknown>): Funcionario {
   return { id: r.Id as string, nome: r.Nome as string, funcao: r.Funcao as string, diaria: Number(r.Diaria), transporte: Number(r.Transporte), alimentacao: Number(r.Alimentacao), telefone: r.Telefone as string, ativo: Boolean(r.Ativo), obraId: (r.ObraId as string) || null };
 }
 function mapObra(r: Record<string, unknown>): Obra {
-  return { id: r.Id as string, nome: r.Nome as string, endereco: r.Endereco as string, lat: Number(r.Lat), lng: Number(r.Lng), ativa: Boolean(r.Ativa) };
+  return { id: r.Id as string, nome: r.Nome as string, endereco: r.Endereco as string, lat: Number(r.Lat), lng: Number(r.Lng), ativa: Boolean(r.Ativa), turnoNoturno: Boolean(r.TurnoNoturno ?? r.turnoNoturno ?? r.turnonoturno) };
 }
 function mapUsuario(r: Record<string, unknown>): UsuarioAdmin {
   return { id: r.Id as string, login: r.Login as string, perfil: r.Perfil as 'admin' | 'funcionario', funcionarioId: r.FuncionarioId as string | null, funcionarioNome: r.FuncionarioNome as string | null, email: r.Email as string | null, ativo: Boolean(r.Ativo) };
 }
 function mapPresenca(r: Record<string, unknown>): Presenca {
+  const minutosTrabalhados = r.MinutosTrabalhados != null
+    ? Number(r.MinutosTrabalhados)
+    : (r.minutosTrabalhados != null ? Number(r.minutosTrabalhados) : undefined);
+
   return {
     id: r.Id as string, funcionarioId: (r.FuncionarioId ?? r.funcionarioId) as string,
     obraId: (r.ObraId ?? r.obraId) as string, data: (r.Data as string).slice(0, 10),
     horaEntrada: (r.HoraEntrada ?? r.horaEntrada) as string,
     horaSaida: (r.HoraSaida ?? r.horaSaida) as string | undefined,
+    saidaAlmoco: (r.SaidaAlmoco ?? r.saidaAlmoco) as string | undefined,
+    retornoAlmoco: (r.RetornoAlmoco ?? r.retornoAlmoco) as string | undefined,
+    saidaJantar: (r.SaidaJantar ?? r.saidaJantar) as string | undefined,
+    retornoJantar: (r.RetornoJantar ?? r.retornoJantar) as string | undefined,
+    tipoRegistro: (r.TipoRegistro ?? r.tipoRegistro ?? 'entrada') as Presenca['tipoRegistro'],
+    minutosTrabalhados,
+    minutosTrabalhadosTotal: minutosTrabalhados,
+    horaExtraAutorizada: Boolean(r.HoraExtraAutorizada ?? r.horaExtraAutorizada ?? r.horaextraautorizada),
+    autorizadoPor: (r.AutorizadoPor ?? r.autorizadoPor ?? r.autorizadopor) as string | undefined,
+    turnoNoturno: Boolean(r.TurnoNoturno ?? r.turnoNoturno ?? r.turnonoturno),
     lat: Number(r.Lat ?? r.lat), lng: Number(r.Lng ?? r.lng),
     distanciaObra: Number(r.DistanciaObra ?? r.distanciaObra),
     status: (r.Status ?? r.status) as Presenca['status'],

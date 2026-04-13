@@ -17,10 +17,62 @@ function getPool() {
 }
 const q = (text, params) => getPool().query(text, params);
 
+let _jornadaSchemaReady = false;
+async function ensureJornadaSchema() {
+  if (_jornadaSchemaReady) return;
+  const steps = [
+    `ALTER TABLE presenca ADD COLUMN IF NOT EXISTS tiporegistro VARCHAR(20) NOT NULL DEFAULT 'entrada'`,
+    `ALTER TABLE presenca ADD COLUMN IF NOT EXISTS minutostrabalhados INT NULL`,
+    `ALTER TABLE presenca ADD COLUMN IF NOT EXISTS horaextraautorizada BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE presenca ADD COLUMN IF NOT EXISTS turnonoturno BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE presenca ADD COLUMN IF NOT EXISTS saidaalmoco TIME NULL`,
+    `ALTER TABLE presenca ADD COLUMN IF NOT EXISTS retornoalmoco TIME NULL`,
+    `ALTER TABLE presenca ADD COLUMN IF NOT EXISTS saidajantar TIME NULL`,
+    `ALTER TABLE presenca ADD COLUMN IF NOT EXISTS retornojantar TIME NULL`,
+  ];
+  for (const sql of steps) await q(sql);
+  _jornadaSchemaReady = true;
+}
+
+function isJornadaSchemaError(err) {
+  const msg = String(err?.message || '').toLowerCase();
+  return msg.includes('column') && (
+    msg.includes('horaextraautorizada') ||
+    msg.includes('tiporegistro') ||
+    msg.includes('turnonoturno') ||
+    msg.includes('saidaalmoco') ||
+    msg.includes('retornoalmoco') ||
+    msg.includes('saidajantar') ||
+    msg.includes('retornojantar') ||
+    msg.includes('minutostrabalhados')
+  );
+}
+
+async function withJornadaSchemaRetry(fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!isJornadaSchemaError(err)) throw err;
+    try {
+      await ensureJornadaSchema();
+    } catch (schemaErr) {
+      throw new Error(`Schema de jornada ausente e nao foi possivel aplicar automaticamente: ${schemaErr.message}`);
+    }
+    return await fn();
+  }
+}
+
 const mapFuncionario = r => ({ Id: r.id, Nome: r.nome, Funcao: r.funcao, Diaria: r.diaria, Transporte: r.transporte, Alimentacao: r.alimentacao, Telefone: r.telefone, Ativo: r.ativo, ObraId: r.obraid });
 const mapObra       = r => ({ Id: r.id, Nome: r.nome, Endereco: r.endereco, Lat: r.lat, Lng: r.lng, Ativa: r.ativa });
 const mapUsuario    = r => ({ Id: r.id, Login: r.login, Email: r.email, Ativo: r.ativo, FuncionarioId: r.funcionarioid, Perfil: r.perfil, FuncionarioNome: r.funcionarionome });
-const mapPresenca   = r => ({ Id: r.id, Data: r.data, HoraEntrada: r.horaentrada, HoraSaida: r.horasaida, Status: r.status, DistanciaObra: r.distanciaobra, Lat: r.lat, Lng: r.lng, FotoEntrada: r.fotoentrada, FotoSaida: r.fotosaida, FuncionarioId: r.funcionarioid, FuncionarioNome: r.funcionarionome, Funcao: r.funcao, Diaria: r.diaria, Transporte: r.transporte, Alimentacao: r.alimentacao, DiariaPaga: r.diariapaga, CustoTotal: r.custototal, ObraId: r.obraid, ObraNome: r.obranome, ObraEndereco: r.obraendereco });
+const mapPresenca   = r => ({
+  Id: r.id, Data: r.data, HoraEntrada: r.horaentrada, HoraSaida: r.horasaida, Status: r.status,
+  TipoRegistro: r.tiporegistro, MinutosTrabalhados: r.minutostrabalhados, HoraExtraAutorizada: r.horaextraautorizada, TurnoNoturno: r.turnonoturno,
+  SaidaAlmoco: r.saidaalmoco, RetornoAlmoco: r.retornoalmoco, SaidaJantar: r.saidajantar, RetornoJantar: r.retornojantar,
+  DistanciaObra: r.distanciaobra, Lat: r.lat, Lng: r.lng, FotoEntrada: r.fotoentrada, FotoSaida: r.fotosaida,
+  FuncionarioId: r.funcionarioid, FuncionarioNome: r.funcionarionome, Funcao: r.funcao, Diaria: r.diaria, Transporte: r.transporte,
+  Alimentacao: r.alimentacao, DiariaPaga: r.diariapaga, CustoTotal: r.custototal, ObraId: r.obraid, ObraNome: r.obranome, ObraEndereco: r.obraendereco
+});
 
 function send(res, status, data) {
   res.status(status).setHeader('Content-Type', 'application/json');
@@ -150,14 +202,64 @@ module.exports = async (req, res) => {
 
     if (method === 'POST' && url === '/presencas') {
       const b = await readBody(req);
-      const existe = await q('SELECT id FROM presenca WHERE id=$1', [b.id]);
-      if (existe.rows.length > 0) {
-        await q('UPDATE presenca SET horasaida=$2,status=$3,distanciaobra=$4 WHERE id=$1',
-          [b.id, b.horaSaida || null, b.status, b.distanciaObra]);
-      } else {
-        await q(`INSERT INTO presenca (id,funcionarioid,obraid,data,horaentrada,lat,lng,distanciaobra,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-          [b.id, b.funcionarioId, b.obraId, b.data, b.horaEntrada, b.lat, b.lng, b.distanciaObra, b.status]);
-      }
+      await withJornadaSchemaRetry(async () => {
+        const existe = await q('SELECT id FROM presenca WHERE id=$1', [b.id]);
+        if (existe.rows.length > 0) {
+          await q(`
+            UPDATE presenca
+               SET horasaida=$2,status=$3,distanciaobra=$4,minutostrabalhados=$5,horaextraautorizada=$6,
+                   tiporegistro=$7,turnonoturno=$8,saidaalmoco=$9,retornoalmoco=$10,saidajantar=$11,retornojantar=$12
+             WHERE id=$1
+          `, [
+            b.id,
+            b.horaSaida || null,
+            b.status,
+            b.distanciaObra,
+            b.minutosTrabalhados || null,
+            b.horaExtraAutorizada || false,
+            b.tipoRegistro || 'entrada',
+            b.turnoNoturno || false,
+            b.saidaAlmoco || null,
+            b.retornoAlmoco || null,
+            b.saidaJantar || null,
+            b.retornoJantar || null,
+          ]);
+        } else {
+          await q(`
+            INSERT INTO presenca (
+              id,funcionarioid,obraid,data,horaentrada,horasaida,lat,lng,distanciaobra,status,tiporegistro,turnonoturno,
+              saidaalmoco,retornoalmoco,saidajantar,retornojantar,minutostrabalhados,horaextraautorizada
+            )
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+          `, [
+            b.id,
+            b.funcionarioId,
+            b.obraId,
+            b.data,
+            b.horaEntrada,
+            b.horaSaida || null,
+            b.lat,
+            b.lng,
+            b.distanciaObra,
+            b.status,
+            b.tipoRegistro || 'entrada',
+            b.turnoNoturno || false,
+            b.saidaAlmoco || null,
+            b.retornoAlmoco || null,
+            b.saidaJantar || null,
+            b.retornoJantar || null,
+            b.minutosTrabalhados || null,
+            b.horaExtraAutorizada || false,
+          ]);
+        }
+      });
+      return send(res, 200, { ok: true });
+    }
+
+    // PATCH /presencas/:id/autorizar-hora-extra
+    if (method === 'POST' && url.match(/^\/presencas\/[^/]+\/autorizar-hora-extra$/)) {
+      const id = url.split('/')[2];
+      await withJornadaSchemaRetry(() => q('UPDATE presenca SET horaextraautorizada=TRUE WHERE id=$1', [id]));
       return send(res, 200, { ok: true });
     }
 

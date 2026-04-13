@@ -8,7 +8,7 @@ import { useAdminEmail } from '../hooks/useAdminEmail';
 import Pagination from '../components/Pagination';
 import { usePagination } from '../hooks/usePagination';
 
-const vazio: Omit<Obra, 'id'> = { nome: '', endereco: '', lat: 0, lng: 0, ativa: true };
+const vazio: Omit<Obra, 'id'> = { nome: '', endereco: '', lat: 0, lng: 0, ativa: true, turnoNoturno: false };
 
 export default function Obras() {
   const [lista, setLista] = useState<Obra[]>([]);
@@ -68,7 +68,7 @@ export default function Obras() {
 
   function abrirNovo() { setForm(vazio); setEditando(null); setErro(null); setCep(''); setGeocResultados([]); setModal(true); }
   function abrirEdicao(o: Obra) {
-    setForm({ nome: o.nome, endereco: o.endereco, lat: o.lat, lng: o.lng, ativa: o.ativa });
+    setForm({ nome: o.nome, endereco: o.endereco, lat: o.lat, lng: o.lng, ativa: o.ativa, turnoNoturno: o.turnoNoturno });
     setEditando(o); setErro(null); setCep(''); setGeocResultados([]); setModal(true);
   }
   function fechar() { setModal(false); setEditando(null); setForm(vazio); setErro(null); setGeocResultados([]); setCep(''); }
@@ -331,6 +331,10 @@ export default function Obras() {
                     <button type="button" onClick={() => setForm(f => ({ ...f, lat: 0, lng: 0 }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 0, marginLeft: 4, fontSize: 13, lineHeight: 1 }} title="Limpar coordenadas">×</button>
                   </div>
                 )}
+              </div>
+              <div className="form-full form-check">
+                <input type="checkbox" id="turnoNoturno" checked={form.turnoNoturno} onChange={e => setForm(f => ({ ...f, turnoNoturno: e.target.checked }))} />
+                <label htmlFor="turnoNoturno">Obra noturna (intervalo de jantar/café)</label>
               </div>
               <div className="form-full form-check">
                 <input type="checkbox" id="ativa" checked={form.ativa} onChange={e => setForm(f => ({ ...f, ativa: e.target.checked }))} />

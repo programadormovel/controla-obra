@@ -25,7 +25,10 @@ export type Obra = {
   lat: number;
   lng: number;
   ativa: boolean;
+  turnoNoturno: boolean;
 };
+
+export type TipoRegistro = 'entrada' | 'saida-almoco' | 'retorno-almoco' | 'saida-jantar' | 'retorno-jantar' | 'saida';
 
 export type Presenca = {
   id: string;
@@ -34,12 +37,23 @@ export type Presenca = {
   data: string;
   horaEntrada: string;
   horaSaida?: string;
+  tipoRegistro?: TipoRegistro;
+  horaUltimoRegistro?: string;
+  saidaAlmoco?: string;
+  retornoAlmoco?: string;
+  saidaJantar?: string;
+  retornoJantar?: string;
+  turnoNoturno?: boolean;
+  minutosTrabalhados?: number;
+  minutosTrabalhadosTotal?: number;
   lat: number;
   lng: number;
   distanciaObra: number;
   status: "presente" | "ausente" | "meio-periodo";
   fotoEntrada?: string;
   fotoSaida?: string;
+  horaExtraAutorizada?: boolean;
+  autorizadoPor?: string;
 };
 
 export type UsuarioAdmin = {

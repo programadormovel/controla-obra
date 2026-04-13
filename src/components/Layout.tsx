@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, ClipboardCheck, BarChart2, HardHat, LogOut, Building2, UserCog, Menu, X, CalendarDays, Briefcase } from 'lucide-react';
+import { LayoutDashboard, Users, ClipboardCheck, BarChart2, HardHat, LogOut, Building2, UserCog, Menu, X, CalendarDays, Briefcase, Clock, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLoading } from '../context/LoadingContext';
 
@@ -19,6 +19,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       { to: '/obras', icon: <Building2 size={18} />, label: 'Obras' },
       { to: '/gestao-presencas', icon: <CalendarDays size={18} />, label: 'Presenças' },
       { to: '/relatorio', icon: <BarChart2 size={18} />, label: 'Relatório' },
+      { to: '/horas-extras', icon: <Clock size={18} />, label: 'Horas Extras' },
+      { to: '/configuracoes', icon: <SlidersHorizontal size={18} />, label: 'Configurações' },
       { to: '/usuarios', icon: <UserCog size={18} />, label: 'Usuários' },
     ] : []),
   ];
